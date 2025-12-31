@@ -10,6 +10,12 @@
 #define MAX_TASMA 20
 #define ID_PROJEKT 'V'
 
+// Mozliwosci stolikow
+#define ILOSC_1_OS 4
+#define ILOSC_2_OS 4
+#define ILOSC_3_OS 4
+#define ILOSC_4_OS 4
+
 typedef struct {
 	int rodzaj; // Kolor talerza , moze zmienic potem 
 	int cena;

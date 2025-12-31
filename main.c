@@ -35,15 +35,27 @@ void sprzatanie(int sig) {
 
 }
 
+void ustaw_stoliki(Restauracja* r, int ilosc, int pojemnosc, int* index) {
+	for (int i = 0; i < ilosc;i++) {
+		r->stoliki[*index].id = *index;
+		r->stoliki[*index].pojemnosc = pojemnosc;
+		r->stoliki[*index].kto_zajmuje = 0;
+		r->stoliki[*index].ile_osob_siedzi = 0;
+		(*index)++;
+	}
+}
+
 int main() {
 	signal(SIGINT, sprzatanie);// ctrl+c == sprzatanie
 
+	//Ustawienie klucza
 	key_t klucz = ftok(".", ID_PROJEKT);
 	if (klucz == -1) {
 		perror("Blad utworzenia klucza!");
 		exit(1);
 	}
 
+	//Ustawienie pamieci
 	shm_id = shmget(klucz, SHM_SIZE, IPC_CREAT | 0666);
 	if (shm_id == -1) {
 		perror("Blad podlaczania segmentu pamieci dzielonej!");
@@ -59,10 +71,19 @@ int main() {
 	adres_restauracji->czy_otwarte = 1;
 	adres_restauracji->utarg = 0;
 
+	//Zerowanie tasmy
 	for (int i = 0;i < MAX_TASMA;i++) {
 		adres_restauracji->tasma[i].rodzaj = 0;
 	}
+
+	//Ustawienie stolikow wedlug wytycznych
+	int idx = 0;
+	ustaw_stoliki(adres_restauracji, ILOSC_1_OS, 1, &idx);
+	ustaw_stoliki(adres_restauracji, ILOSC_2_OS, 2, &idx);
+	ustaw_stoliki(adres_restauracji, ILOSC_3_OS, 3, &idx);
+	ustaw_stoliki(adres_restauracji, ILOSC_4_OS, 4, &idx);
 	
+
 	printf("Restauracja otwarta ID pamieci = %d\n", shm_id);
 	while (1) {
 		sleep(1);
