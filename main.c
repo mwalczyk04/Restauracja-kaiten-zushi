@@ -6,6 +6,7 @@
 #define SHM_SIZE sizeof(Restauracja)
 
 int shm_id = -1;
+int sem_id = -1;
 Restauracja * adres_restauracji = NULL;
 
 void sprzatanie(int sig) {
@@ -30,7 +31,16 @@ void sprzatanie(int sig) {
 		}
 	}
 
-	// Dodac tu pozniej usuwanie semaforow
+	if (sem_id != -1) {
+		if (semctl(sem_id, 0, IPC_RMID) == -1) {
+			perror("Blad usuwania semaforow");
+		}
+		else {
+			printf("Usunieto semafory\n");
+		}
+
+	}
+
 	exit(0);
 
 }
@@ -68,6 +78,19 @@ int main() {
 		exit(1);
 	}
 
+	sem_id = semget(klucz, 3, IPC_CREAT | 0666);
+	if (sem_id == -1) {
+		perror("Blad tworzenia semaforow");
+		sprzatanie();
+		exit(1);
+	}
+
+	//Ustawienie wartosci poczatkowych semaforow
+	semctl(sem_id, SEM_BLOKADA, SETVAL, 1);
+	semctl(sem_id, SEM_WOLNE, SETVAL, MAX_TASMA);
+	semctl(sem_id, SEM_ZAJETE, SETVAL, 0);
+
+	//Inicjalizacja pamieci
 	adres_restauracji->czy_otwarte = 1;
 	adres_restauracji->utarg = 0;
 

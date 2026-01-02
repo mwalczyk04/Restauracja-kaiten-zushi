@@ -10,6 +10,10 @@
 #define MAX_TASMA 20
 #define ID_PROJEKT 'V'
 
+#define SEM_BLOKADA 0	//Blokada tasmy
+#define SEM_WOLNE 1
+#define SEM_ZAJETE 2
+
 // Mozliwosci stolikow
 #define ILOSC_1_OS 4
 #define ILOSC_2_OS 4
@@ -35,3 +39,31 @@ typedef struct {
 	int czy_otwarte;
 	int utarg;
 }Restauracja;
+
+void sem_p(int sem_id, int sem_num) {
+	struct sembuf buf;
+	buf.sem_num = sem_num;
+	buf.sem_op = -1;
+	buf.sem_flg = 0;
+	if (semop(sem_id, &buf, 1) == -1) {
+		perror("Blad sem_p");
+		exit(1);
+	}
+	else {
+		printf("Semafor zostal zamkniety\n");
+	}
+}
+
+void sem_v(int sem_id, int sem_num) {
+	struct sembuf buf;
+	buf.sem_num = sem_num;
+	buf.sem_op = 1;
+	buf.sem_flg = 0;
+	if (semop(sem_id, &buf, 1) == -1) {
+		perror("Blad sem_v");
+		exit(1);
+	}
+	else {
+		printf("Semafor zostal otwarty\n");
+	}
+}
