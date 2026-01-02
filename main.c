@@ -9,9 +9,9 @@ int shm_id = -1;
 int sem_id = -1;
 Restauracja * adres_restauracji = NULL;
 
-void sprzatanie(int sig) {
+void sprzatanie() {
 	
-	printf("\nOtrzymano sygnal %d\n Zaczynam sprzatac\n", sig);
+	//printf("\nOtrzymano sygnal %d\n Zaczynam sprzatac\n", sig);
 
 	if (adres_restauracji != NULL) {
 		if (shmdt(adres_restauracji) == -1) {
