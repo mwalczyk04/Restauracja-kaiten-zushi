@@ -4,7 +4,7 @@
 #define SHM_SIZE sizeof(Restauracja)
 
 int main() {
-	srand(time(NULL));
+	srand(time(NULL) ^ getpid());
 
 	key_t klucz = ftok(".", ID_PROJEKT);
 	if (klucz == -1) {

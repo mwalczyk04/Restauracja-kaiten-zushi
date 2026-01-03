@@ -4,7 +4,7 @@
 #define SHM_SIZE sizeof(Restauracja)
 
 int main() {
-	srand(time(NULL));
+	srand(time(NULL) ^ getpid());
 
 	key_t klucz = ftok(".", ID_PROJEKT);
 	if (klucz == -1) {
@@ -43,10 +43,17 @@ int main() {
 
 		int pozycja = -1;
 		int typ_zjedzony = 0;
+		int do_zaplaty = 0;
 
 		for (int i = 0;i < MAX_TASMA;i++) {
 			if (adres->tasma[i].rodzaj != 0) {
 				typ_zjedzony = adres->tasma[i].rodzaj;
+				
+				if (typ_zjedzony == 1) { do_zaplaty = CENA_DANIA_1; }
+				else if (typ_zjedzony == 2) { do_zaplaty = CENA_DANIA_2; }
+				else { do_zaplaty = CENA_DANIA_3; }
+
+				adres->utarg += do_zaplaty;
 
 				//Klient zjadl zerujemy
 				adres->tasma[i].rodzaj = 0;
@@ -62,7 +69,7 @@ int main() {
 		sem_v(sem_id, SEM_WOLNE);
 
 		if (pozycja != -1) {
-			printf("[Klient] Zjedzono danie typu %d z pozycji %d\n", typ_zjedzony, pozycja);
+			printf("[Klient] Zjedzono danie typu %d z pozycji %d , zaplacono %d . Wychodze\n", typ_zjedzony, pozycja,do_zaplaty);
 		}
 		else {
 			printf("Blad semafora | klient");

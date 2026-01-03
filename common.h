@@ -20,6 +20,11 @@
 #define ILOSC_3_OS 4
 #define ILOSC_4_OS 4
 
+//Cennik dan
+#define CENA_DANIA_1 10;
+#define CENA_DANIA_2 15;
+#define CENA_DANIA_3 20;
+
 typedef struct {
 	int rodzaj; // Kolor talerza , moze zmienic potem 
 	int cena;
