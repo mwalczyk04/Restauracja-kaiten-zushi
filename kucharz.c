@@ -38,7 +38,7 @@ int main() {
 		int typ_dania = (rand() % 3) + 1;
 
 		printf("Przygotowanie dania typu %d\n", typ_dania);
-		sleep(rand() % 3 + 1); //Losowy czas przygotowania potrawy
+		usleep(100000 + (rand() % 200000)); //Losowy czas przygotowania potrawy
 
 		sem_p(sem_id, SEM_WOLNE);	//Czekanie na miejsce
 		sem_p(sem_id, SEM_BLOKADA);	//Blokowanie tasmy

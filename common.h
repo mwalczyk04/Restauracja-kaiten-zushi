@@ -23,9 +23,9 @@
 #define CALKOWITA_ILOSC_MIEJSC 30
 
 //Cennik dan
-#define CENA_DANIA_1 10;
-#define CENA_DANIA_2 15;
-#define CENA_DANIA_3 20;
+#define CENA_DANIA_1 10
+#define CENA_DANIA_2 15
+#define CENA_DANIA_3 20
 
 typedef struct {
 	int rodzaj; // Kolor talerza , moze zmienic potem 
@@ -56,9 +56,9 @@ void sem_p(int sem_id, int sem_num) {
 		perror("Blad sem_p");
 		exit(1);
 	}
-	else {
-		printf("Semafor zostal zamkniety\n");
-	}
+	//else {
+	//	printf("Semafor zostal zamkniety\n");
+	//}
 }
 
 void sem_v(int sem_id, int sem_num) {
@@ -70,7 +70,7 @@ void sem_v(int sem_id, int sem_num) {
 		perror("Blad sem_v");
 		exit(1);
 	}
-	else {
-		printf("Semafor zostal otwarty\n");
-	}
+	//else {
+	//	printf("Semafor zostal otwarty\n");
+	//}
 }

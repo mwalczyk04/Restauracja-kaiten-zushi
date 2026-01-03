@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 
+#define MAX_LICZBA_KLIENTOW 40
 #define SHM_SIZE sizeof(Restauracja)
 
 int shm_id = -1;
@@ -12,6 +13,9 @@ Restauracja * adres_restauracji = NULL;
 void sprzatanie() {
 	
 	//printf("\nOtrzymano sygnal %d\n Zaczynam sprzatac\n", sig);
+	printf("[Manager] Zamykanie restauracji\n");
+	
+	kill(0, SIGTERM);	//Sygnal KILL dla wszystkich procesow
 
 	if (adres_restauracji != NULL) {
 		if (shmdt(adres_restauracji) == -1) {
@@ -40,9 +44,21 @@ void sprzatanie() {
 		}
 
 	}
+	printf("[Manager] Zamykanie zakonczone, zasoby zwolnione\n");
 
 	exit(0);
 
+}
+
+void uruchom_proces(const char* sciezka, const char* nazwa) {
+	pid_t pid = fork();
+
+	if (pid == 0) {
+		execl(sciezka, nazwa, NULL);
+
+		perror("Blad execl");	//Wykona sie tylko jesli execl nie zadziala
+		exit(1);
+	}
 }
 
 void ustaw_stoliki(Restauracja* r, int ilosc, int pojemnosc, int* index) {
@@ -56,6 +72,7 @@ void ustaw_stoliki(Restauracja* r, int ilosc, int pojemnosc, int* index) {
 }
 
 int main() {
+	signal(SIGTERM, SIG_IGN);	//Blokada zeby kill nie zabil Managera
 	signal(SIGINT, sprzatanie);// ctrl+c == sprzatanie
 
 	//Ustawienie klucza
@@ -106,9 +123,21 @@ int main() {
 	ustaw_stoliki(adres_restauracji, ILOSC_2_OS, 2, &idx);
 	ustaw_stoliki(adres_restauracji, ILOSC_3_OS, 3, &idx);
 	ustaw_stoliki(adres_restauracji, ILOSC_4_OS, 4, &idx);
+
+	//Uruchamianie procesow
+	uruchom_proces("./kucharz", "kucharz");
+	printf("[Manager] Kucharz aktywowany\n");
+
+	printf("[Manager] Aktywowanie klientow\n");
+	for (int i = 0;i < MAX_LICZBA_KLIENTOW;i++) {
+		uruchom_proces("./klient", "klient");
+
+		usleep(50000);	//Opoznienie 50ms
+	}
 	
 
 	printf("Restauracja otwarta ID pamieci = %d, ilosc miejsc = %d\n", shm_id, CALKOWITA_ILOSC_MIEJSC);
+	
 	while (1) {
 		sleep(1);
 	}
