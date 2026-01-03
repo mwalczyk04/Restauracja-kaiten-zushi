@@ -13,12 +13,14 @@
 #define SEM_BLOKADA 0	//Blokada tasmy
 #define SEM_WOLNE 1
 #define SEM_ZAJETE 2
+#define SEM_MIEJSCA 3
 
 // Mozliwosci stolikow
 #define ILOSC_1_OS 4
 #define ILOSC_2_OS 4
 #define ILOSC_3_OS 4
 #define ILOSC_4_OS 4
+#define CALKOWITA_ILOSC_MIEJSC 30
 
 //Cennik dan
 #define CENA_DANIA_1 10;

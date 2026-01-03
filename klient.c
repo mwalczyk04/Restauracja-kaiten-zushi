@@ -36,7 +36,11 @@ int main() {
 	while (1) {
 		sleep(rand() % 4 + 2);
 
-		printf("[Klient] Czekam na jedzenie\n");
+		printf("Klient pojawil sie przed restauracja\n");
+
+		sem_p(sem_id, SEM_MIEJSCA);
+
+		printf("[Klient] Wszedlem.Czekam na jedzenie\n");
 
 		sem_p(sem_id, SEM_ZAJETE);
 		sem_p(sem_id, SEM_BLOKADA);
@@ -75,6 +79,7 @@ int main() {
 			printf("Blad semafora | klient");
 		}
 
+		sem_v(sem_id, SEM_MIEJSCA);
 
 	}
 
