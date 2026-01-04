@@ -1,5 +1,7 @@
 #include "common.h"
 #include <time.h>
+#include <unistd.h>
+#include <stdio.h>
 
 #define SHM_SIZE sizeof(Restauracja)
 
@@ -31,21 +33,56 @@ int main() {
 	}
 
 
-	printf("Klient o PID = d% przychodzi\n", getpid());
+	printf("GRUPA o PID = %d przychodzi\n", getpid());
+	fflush(stdout);
 
 	while (1) {
-		sleep(rand() % 4 + 2);
+		sleep(rand() % 6 + 2);
 
-		printf("Klient pojawil sie przed restauracja\n");
+		//Generowanie grupy klientow
+		int liczba_osob = 1 + (rand() % 4);
+		int dorosli = 1 + (rand() % liczba_osob);
+		int dzieci = liczba_osob - dorosli;
+		int ile_zjedza = 3 + (rand() % 8);
 
-		sem_p(sem_id, SEM_MIEJSCA);
+		int semafor_docelowy = -1;
+		int ilosc_do_zajecia = 1;	//Dla stolika 1, dla lady to faktyczna liczba osob
 
-		printf("[Klient] Wszedlem.Czekam na jedzenie\n");
+		int czy_lada = 0;
+		if (dzieci == 0 && liczba_osob <= 2) {
+			if (rand() % 2 == 0) czy_lada = 1;	//50% szans na lade dla grup do 2 osob
+		}
+		
+		if (czy_lada) {
+			semafor_docelowy = SEM_LADA;
+			ilosc_do_zajecia = liczba_osob;
+			printf("[GRUPA %d](%d osob) Zajmuje miejsce przy ladzie\n", getpid(), liczba_osob);
+		}
+		else {
+			switch (liczba_osob)
+			{
+			case 1: semafor_docelowy = SEM_STOL_1;
+				break;
+			case 2: semafor_docelowy = SEM_STOL_2;
+				break;
+			case 3: semafor_docelowy = SEM_STOL_3;
+				break;
+			default: semafor_docelowy = SEM_STOL_4;
+				break;
+			}
+			ilosc_do_zajecia = 1; //Zajeto 1 stolik
+			printf("[GRUPA %d](%d osob) Zajmuje stolik %d osobowy\n", getpid(), liczba_osob, liczba_osob);
+		}
 
+		sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
+
+		int rachunek_grupy = 0;
+
+		for (int k = 0;k < ile_zjedza;k++) {
 		sem_p(sem_id, SEM_ZAJETE);
 		sem_p(sem_id, SEM_BLOKADA);
 
-		int pozycja = -1;
+		//int pozycja = -1;
 		int typ_zjedzony = 0;
 		int do_zaplaty = 0;
 
@@ -57,29 +94,25 @@ int main() {
 				else if (typ_zjedzony == 2) { do_zaplaty = CENA_DANIA_2; }
 				else { do_zaplaty = CENA_DANIA_3; }
 
-				adres->utarg += do_zaplaty;
+				rachunek_grupy += do_zaplaty;
 
 				//Klient zjadl zerujemy
 				adres->tasma[i].rodzaj = 0;
 				adres->tasma[i].cena = 0;
-
-				pozycja = i;
 				break;
 			}
 		}
 
-
 		sem_v(sem_id, SEM_BLOKADA);
 		sem_v(sem_id, SEM_WOLNE);
+		usleep(200000);
 
-		if (pozycja != -1) {
-			printf("[Klient] Zjedzono danie typu %d z pozycji %d , zaplacono %d . Wychodze\n", typ_zjedzony, pozycja,do_zaplaty);
 		}
-		else {
-			printf("Blad semafora | klient");
-		}
+		adres->utarg += rachunek_grupy;
 
-		sem_v(sem_id, SEM_MIEJSCA);
+		printf("[GRUPA %d] Zaplacono %d zl, Wychodzimy\n",getpid(),rachunek_grupy);
+
+		sem_zmiana(sem_id, semafor_docelowy, ilosc_do_zajecia);
 
 	}
 

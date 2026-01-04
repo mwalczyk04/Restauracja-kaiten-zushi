@@ -57,7 +57,7 @@ int main() {
 		sem_v(sem_id, SEM_ZAJETE);	//Informowanie ze danie gotowe
 
 		if (pozycja != -1) {
-			printf("[K] Danie typu %d polozone na pozycji %d\n", typ_dania, pozycja);
+			printf("[Kucharz] Danie typu %d polozone na pozycji %d\n", typ_dania, pozycja);
 		}
 	}
 

@@ -95,7 +95,7 @@ int main() {
 		exit(1);
 	}
 
-	sem_id = semget(klucz, 4, IPC_CREAT | 0666);
+	sem_id = semget(klucz, 8, IPC_CREAT | 0666);
 	if (sem_id == -1) {
 		perror("Blad tworzenia semaforow");
 		sprzatanie();
@@ -106,7 +106,12 @@ int main() {
 	semctl(sem_id, SEM_BLOKADA, SETVAL, 1);
 	semctl(sem_id, SEM_WOLNE, SETVAL, MAX_TASMA);
 	semctl(sem_id, SEM_ZAJETE, SETVAL, 0);
-	semctl(sem_id, SEM_MIEJSCA, SETVAL, CALKOWITA_ILOSC_MIEJSC);
+
+	semctl(sem_id, SEM_LADA, SETVAL, ILOSC_MIEJSC_LADA);
+	semctl(sem_id, SEM_STOL_1, SETVAL, ILOSC_1_OS);
+	semctl(sem_id, SEM_STOL_2, SETVAL, ILOSC_2_OS);
+	semctl(sem_id, SEM_STOL_3, SETVAL, ILOSC_3_OS);
+	semctl(sem_id, SEM_STOL_4, SETVAL, ILOSC_4_OS);
 
 	//Inicjalizacja pamieci
 	adres_restauracji->czy_otwarte = 1;
@@ -136,7 +141,7 @@ int main() {
 	}
 	
 
-	printf("Restauracja otwarta ID pamieci = %d, ilosc miejsc = %d\n", shm_id, CALKOWITA_ILOSC_MIEJSC);
+	printf("Restauracja otwarta ID pamieci = %d, miejsce: LADA = %d , 1 OS = %d , 2 OS = %d , 3 OS = %d , 4 OS = %d\n", shm_id, ILOSC_MIEJSC_LADA, ILOSC_1_OS, ILOSC_2_OS, ILOSC_3_OS, ILOSC_4_OS);
 	
 	while (1) {
 		sleep(1);
