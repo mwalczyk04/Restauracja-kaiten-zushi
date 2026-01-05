@@ -8,21 +8,28 @@
 int main() {
 	srand(time(NULL) ^ getpid());
 
-	key_t klucz = ftok(".", ID_PROJEKT);
-	if (klucz == -1) {
+	key_t klucz_shm = ftok(".", ID_PROJEKT);
+	key_t klucz_msg = ftok(".", ID_KOLEJKA);
+	if (klucz_shm == -1 || klucz_msg == -1) {
 		perror("Blad utworzenia klucza!");
 		exit(1);
 	}
 
-	int shm_id = shmget(klucz, SHM_SIZE, 0666);
+	int shm_id = shmget(klucz_shm, SHM_SIZE, 0666);
 	if (shm_id == -1) {
 		perror("Blad podlaczania segmentu pamieci dzielonej!");
 		exit(1);
 	}
 
-	int sem_id = semget(klucz, 0, 0666);
+	int sem_id = semget(klucz_shm, 0, 0666);
 	if (sem_id == -1) {
 		perror("Blad semaforow");
+		exit(1);
+	}
+
+	int msg_id = msgget(klucz_msg, 0666);
+	if (msg_id == -1) {
+		perror("Blad msgget");
 		exit(1);
 	}
 
@@ -32,6 +39,7 @@ int main() {
 		exit(1);
 	}
 
+	KomunikatZaplaty msg;
 
 	printf("GRUPA o PID = %d przychodzi\n", getpid());
 	fflush(stdout);
@@ -183,9 +191,18 @@ int main() {
 		usleep(1000000 + (rand() % 500000));
 
 		}
-		adres->utarg += rachunek_grupy;
+		//adres->utarg += rachunek_grupy;
+		//printf("[GRUPA %d] Zaplacono %d zl, Wychodzimy\n",getpid(),rachunek_grupy);
+		msg.mtype = 1;
+		msg.pid_klienta = getpid();
+		msg.kwota = rachunek_grupy;
 
-		printf("[GRUPA %d] Zaplacono %d zl, Wychodzimy\n",getpid(),rachunek_grupy);
+		if (msgsnd(msg_id, &msg, sizeof(msg) - sizeof(long), 0) == -1) {
+			perror("Blad wyslania zaplaty");
+		}
+		else {
+			printf("[GRUPA %d] Wyslano do kasy %d zl, Wychodzimy\n",getpid(),rachunek_grupy);
+		}
 
 		sem_zmiana(sem_id, semafor_docelowy, ilosc_do_zajecia);
 

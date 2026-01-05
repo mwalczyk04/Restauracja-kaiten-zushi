@@ -7,9 +7,11 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/msg.h>
 
 #define MAX_TASMA 20
-#define ID_PROJEKT 'V'
+#define ID_PROJEKT 'V'	//Litera do ftok semaforow
+#define ID_KOLEJKA 'K' //Litera do  ftok komunikatow
 #define MAX_ZAMOWIEN 10	//Limit zamowien na tablecie
 
 #define SEM_BLOKADA 0	//Blokada tasmy
@@ -41,6 +43,12 @@
 #define CENA_DANIA_6 60
 
 
+
+typedef struct {
+	long mtype;	//Typ komunikatu
+	int pid_klienta;
+	int kwota;
+}KomunikatZaplaty;
 
 typedef struct {
 	int rodzaj; // Kolor talerza , moze zmienic potem 

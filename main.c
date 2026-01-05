@@ -8,6 +8,7 @@
 
 int shm_id = -1;
 int sem_id = -1;
+int msg_id = -1;
 Restauracja * adres_restauracji = NULL;
 
 void sprzatanie() {
@@ -44,6 +45,15 @@ void sprzatanie() {
 		}
 
 	}
+
+	if (msg_id != -1) {
+		if (msgctl(msg_id, IPC_RMID, NULL) == -1) {
+			perror("Blad usuwania kolejki komunikatow");
+		}
+		else {
+			printf("Usunieto kolejke komunikatow\n");
+		}
+	}
 	printf("[Manager] Zamykanie zakonczone, zasoby zwolnione\n");
 
 	exit(0);
@@ -67,14 +77,15 @@ int main() {
 	signal(SIGINT, sprzatanie);// ctrl+c == sprzatanie
 
 	//Ustawienie klucza
-	key_t klucz = ftok(".", ID_PROJEKT);
-	if (klucz == -1) {
+	key_t klucz_shm = ftok(".", ID_PROJEKT);
+	key_t klucz_msg = ftok(".", ID_KOLEJKA);
+	if (klucz_shm == -1 || klucz_msg == -1) {
 		perror("Blad utworzenia klucza!");
 		exit(1);
 	}
 
 	//Ustawienie pamieci
-	shm_id = shmget(klucz, SHM_SIZE, IPC_CREAT | 0666);
+	shm_id = shmget(klucz_shm, SHM_SIZE, IPC_CREAT | 0666);
 	if (shm_id == -1) {
 		perror("Blad podlaczania segmentu pamieci dzielonej!");
 		exit(1);
@@ -86,9 +97,16 @@ int main() {
 		exit(1);
 	}
 
-	sem_id = semget(klucz, 8, IPC_CREAT | 0666);
+	sem_id = semget(klucz_shm, 8, IPC_CREAT | 0666);
 	if (sem_id == -1) {
 		perror("Blad tworzenia semaforow");
+		sprzatanie();
+		exit(1);
+	}
+
+	msg_id = msgget(klucz_msg, IPC_CREAT | 0666);
+	if (msg_id == -1) {
+		perror("Blad msgget");
 		sprzatanie();
 		exit(1);
 	}
@@ -122,6 +140,9 @@ int main() {
 	//Uruchamianie procesow
 	uruchom_proces("./kucharz", "kucharz");
 	printf("[Manager] Kucharz aktywowany\n");
+
+	uruchom_proces("./obsluga", "obsluga");
+	printf("[Manager] Obsluga aktywna\n");
 
 	printf("[Manager] Aktywowanie klientow\n");
 	for (int i = 0;i < MAX_LICZBA_KLIENTOW;i++) {
