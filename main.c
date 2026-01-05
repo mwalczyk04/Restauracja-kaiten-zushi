@@ -109,9 +109,9 @@ int main() {
 
 	semctl(sem_id, SEM_LADA, SETVAL, ILOSC_MIEJSC_LADA);
 	semctl(sem_id, SEM_STOL_1, SETVAL, ILOSC_1_OS);
-	semctl(sem_id, SEM_STOL_2, SETVAL, ILOSC_2_OS);
-	semctl(sem_id, SEM_STOL_3, SETVAL, ILOSC_3_OS);
-	semctl(sem_id, SEM_STOL_4, SETVAL, ILOSC_4_OS);
+	semctl(sem_id, SEM_STOL_2, SETVAL, ILOSC_2_OS * 2);
+	semctl(sem_id, SEM_STOL_3, SETVAL, ILOSC_3_OS * 3);
+	semctl(sem_id, SEM_STOL_4, SETVAL, ILOSC_4_OS * 4);
 
 	//Inicjalizacja pamieci
 	adres_restauracji->czy_otwarte = 1;

@@ -56,22 +56,47 @@ int main() {
 		if (czy_lada) {
 			semafor_docelowy = SEM_LADA;
 			ilosc_do_zajecia = liczba_osob;
-			printf("[GRUPA %d](%d osob) Zajmuje miejsce przy ladzie\n", getpid(), liczba_osob);
+			printf("[GRUPA %d](%d os) Zajmuje miejsce przy ladzie\n", getpid(), liczba_osob);
 		}
 		else {
 			switch (liczba_osob)
 			{
-			case 1: semafor_docelowy = SEM_STOL_1;
+			case 1:
+				if (rand() % 2 == 0) {
+					semafor_docelowy = SEM_STOL_1;
+					ilosc_do_zajecia = 1;
+					printf("[GRUPA %d](1 os) Stolik 1 os(Zajmuje caly)\n", getpid());
+				}
+				else {
+					semafor_docelowy = SEM_STOL_2;
+					ilosc_do_zajecia = 1;
+					printf("[GRUPA %d](1 os) Stolik 2 os (Dosiada sie)\n", getpid());
+				}
 				break;
-			case 2: semafor_docelowy = SEM_STOL_2;
+			case 2:
+				if (rand() % 2 == 0) {
+					semafor_docelowy = SEM_STOL_2;
+					ilosc_do_zajecia = 2;
+					printf("[GRUPA %d](2 os) Stolik 2 os (Zajmuje caly)\n", getpid());
+				}
+				else {
+					semafor_docelowy = SEM_STOL_4;
+					ilosc_do_zajecia = 2;
+					printf("[GRUPA %d](2 os) Stolik 4 os (Dosiada sie)\n", getpid());
+				}
 				break;
-			case 3: semafor_docelowy = SEM_STOL_3;
+			case 3: 
+				semafor_docelowy = SEM_STOL_3;
+				ilosc_do_zajecia = 3;
+				printf("[GRUPA %d](3 os) Stolik 3 os (Zajmuje caly)\n", getpid());
 				break;
-			default: semafor_docelowy = SEM_STOL_4;
+			default:
+				semafor_docelowy = SEM_STOL_4;
+				ilosc_do_zajecia = 4;
+				printf("[GRUPA %d](4 os) Stolik 4 os (Zajmuje caly)\n", getpid());
 				break;
 			}
-			ilosc_do_zajecia = 1; //Zajeto 1 stolik
-			printf("[GRUPA %d](%d osob) Zajmuje stolik %d osobowy\n", getpid(), liczba_osob, liczba_osob);
+			
 		}
 
 		sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
