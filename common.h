@@ -4,11 +4,13 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
-#define MAX_STOLIKI 20
 #define MAX_TASMA 20
 #define ID_PROJEKT 'V'
+#define MAX_ZAMOWIEN 10	//Limit zamowien na tablecie
 
 #define SEM_BLOKADA 0	//Blokada tasmy
 #define SEM_WOLNE 1
@@ -29,29 +31,36 @@
 #define ILOSC_MIEJSC_LADA 10
 
 //Cennik dan
+//Podstawowe
 #define CENA_DANIA_1 10
 #define CENA_DANIA_2 15
 #define CENA_DANIA_3 20
+//Specjalne z tabletu
+#define CENA_DANIA_4 40
+#define CENA_DANIA_5 50
+#define CENA_DANIA_6 60
+
+
 
 typedef struct {
 	int rodzaj; // Kolor talerza , moze zmienic potem 
 	int cena;
-	int rezerwacja_dla;  
+	int rezerwacja_dla;	// 0 = dla wszystkich, wartosc = zarezerwowane
 }Talerz;
 
+
 typedef struct {
-	int id;
-	int pojemnosc;
-	int kto_zajmuje;
-	int ile_osob_siedzi;
-}Stolik;
+	int pid_klienta;
+	int typ_dania;
+}Zamowienie;
 
 typedef struct {
 	Talerz tasma[MAX_TASMA];
-	Stolik stoliki[MAX_STOLIKI];
+	Zamowienie tablet[MAX_ZAMOWIEN];
 	int czy_otwarte;
 	int utarg;
 }Restauracja;
+
 
 void sem_p(int sem_id, int sem_num) {
 	struct sembuf buf;

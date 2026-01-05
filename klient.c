@@ -104,33 +104,83 @@ int main() {
 		int rachunek_grupy = 0;
 
 		for (int k = 0;k < ile_zjedza;k++) {
-		sem_p(sem_id, SEM_ZAJETE);
-		sem_p(sem_id, SEM_BLOKADA);
+		
 
 		//int pozycja = -1;
-		int typ_zjedzony = 0;
-		int do_zaplaty = 0;
+		int czy_specjal = 0;
+		int typ_zamowiony = 0;
+		if (rand() % 100 < 30) {
+			typ_zamowiony = 4 + (rand() % 3);
+			sem_p(sem_id, SEM_BLOKADA);
 
-		for (int i = 0;i < MAX_TASMA;i++) {
-			if (adres->tasma[i].rodzaj != 0) {
-				typ_zjedzony = adres->tasma[i].rodzaj;
-				
-				if (typ_zjedzony == 1) { do_zaplaty = CENA_DANIA_1; }
-				else if (typ_zjedzony == 2) { do_zaplaty = CENA_DANIA_2; }
-				else { do_zaplaty = CENA_DANIA_3; }
-
-				rachunek_grupy += do_zaplaty;
-
-				//Klient zjadl zerujemy
-				adres->tasma[i].rodzaj = 0;
-				adres->tasma[i].cena = 0;
-				break;
+			for (int i = 0;i < MAX_ZAMOWIEN;i++) {
+				if (adres->tablet[i].pid_klienta == 0) {
+					adres->tablet[i].pid_klienta = getpid();
+					adres->tablet[i].typ_dania = typ_zamowiony;
+					czy_specjal = 1;
+					printf("[GRUPA %d] Zamawiam w tablecie danie %d\n", getpid(), typ_zamowiony);
+					break;
+				}
 			}
+			sem_v(sem_id, SEM_BLOKADA);
 		}
 
-		sem_v(sem_id, SEM_BLOKADA);
-		sem_v(sem_id, SEM_WOLNE);
-		usleep(200000);
+		int zjedzone = 0;
+		int typ_zjedzony = 0;
+		int rezerwacja = 0;
+		int do_zaplaty = 0;
+
+		while (!zjedzone) {
+		
+			sem_p(sem_id, SEM_ZAJETE);
+			sem_p(sem_id, SEM_BLOKADA);
+
+			for (int i = 0;i < MAX_TASMA;i++) {
+				if (adres->tasma[i].rodzaj != 0) {
+					typ_zjedzony = adres->tasma[i].rodzaj;
+					rezerwacja = adres->tasma[i].rezerwacja_dla;
+					do_zaplaty = 0;
+
+					if (typ_zjedzony == 1) { do_zaplaty = CENA_DANIA_1; }
+					else if (typ_zjedzony == 2) { do_zaplaty = CENA_DANIA_2; }
+					else if (typ_zjedzony == 3) { do_zaplaty = CENA_DANIA_3; }
+					else if (typ_zjedzony == 4) { do_zaplaty = CENA_DANIA_4; }
+					else if (typ_zjedzony == 5) { do_zaplaty = CENA_DANIA_5; }
+					else if (typ_zjedzony == 6) { do_zaplaty = CENA_DANIA_6; }
+
+					if (czy_specjal) {
+						if (rezerwacja == getpid()) {
+							rachunek_grupy += do_zaplaty;
+							adres->tasma[i].rodzaj = 0;
+							adres->tasma[i].rezerwacja_dla = 0;
+							zjedzone = 1;
+							printf("[GRUPA %d] Otrzymano zamowienie SPECJALNE %d\n", getpid(), typ_zjedzony);
+							break;
+						}
+					}
+					else {
+						if (rezerwacja == 0) {
+							rachunek_grupy += do_zaplaty;
+							adres->tasma[i].rodzaj = 0;
+							zjedzone = 1;
+							break;
+						}
+					}
+				}
+			}
+			
+			sem_v(sem_id, SEM_BLOKADA);
+
+			if(zjedzone){
+				sem_v(sem_id, SEM_WOLNE);
+			}
+			else {
+				sem_v(sem_id, SEM_ZAJETE);	//Oddaje semafor jak nic nie wzial
+				usleep(50000);
+			}
+
+		}
+		usleep(1000000 + (rand() % 500000));
 
 		}
 		adres->utarg += rachunek_grupy;

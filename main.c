@@ -61,15 +61,6 @@ void uruchom_proces(const char* sciezka, const char* nazwa) {
 	}
 }
 
-void ustaw_stoliki(Restauracja* r, int ilosc, int pojemnosc, int* index) {
-	for (int i = 0; i < ilosc;i++) {
-		r->stoliki[*index].id = *index;
-		r->stoliki[*index].pojemnosc = pojemnosc;
-		r->stoliki[*index].kto_zajmuje = 0;
-		r->stoliki[*index].ile_osob_siedzi = 0;
-		(*index)++;
-	}
-}
 
 int main() {
 	signal(SIGTERM, SIG_IGN);	//Blokada zeby kill nie zabil Managera
@@ -120,14 +111,13 @@ int main() {
 	//Zerowanie tasmy
 	for (int i = 0;i < MAX_TASMA;i++) {
 		adres_restauracji->tasma[i].rodzaj = 0;
+		adres_restauracji->tasma[i].rezerwacja_dla = 0;
 	}
-
-	//Ustawienie stolikow wedlug wytycznych
-	int idx = 0;
-	ustaw_stoliki(adres_restauracji, ILOSC_1_OS, 1, &idx);
-	ustaw_stoliki(adres_restauracji, ILOSC_2_OS, 2, &idx);
-	ustaw_stoliki(adres_restauracji, ILOSC_3_OS, 3, &idx);
-	ustaw_stoliki(adres_restauracji, ILOSC_4_OS, 4, &idx);
+	//Zerowanie tabletu
+	for (int i = 0; i < MAX_ZAMOWIEN; i++) {
+		adres_restauracji->tablet[i].pid_klienta = 0;
+		adres_restauracji->tablet[i].typ_dania = 0;
+	}
 
 	//Uruchamianie procesow
 	uruchom_proces("./kucharz", "kucharz");
