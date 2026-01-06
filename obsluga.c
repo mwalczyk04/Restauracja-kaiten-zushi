@@ -38,21 +38,24 @@ int main() {
 
 	while (1) {
 		//Odbieranie komunikatu typu 1
-		if (msgrcv(msg_id, &msg, sizeof(msg) - sizeof(long), 1, 0) != -1) {
-
+		int wynik = msgrcv(msg_id, &msg, sizeof(msg) - sizeof(long), 1, 0);
+		
+		if (wynik != -1) {
 			printf("[Obsluga] Klient %d placi rachunek: %d zl\n", msg.pid_klienta, msg.kwota);
 			adres->utarg += msg.kwota;
-
-
 		}
-
+		else {
+			if (errno == EIDRM || errno == EINVAL) {
+				printf("[Obsluga] Kolejka usunieta - zamykanie procesu\n");
+				break;
+			}
+			else {
+				perror("Blad msgcrv");
+				break;
+			}
+		}
 	}
 
-
-
-
-
-
-
+	shmdt(adres);
 	return 0;
 }

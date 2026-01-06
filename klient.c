@@ -41,8 +41,14 @@ int main() {
 
 	KomunikatZaplaty msg;
 
-	printf("GRUPA o PID = %d przychodzi\n", getpid());
-	fflush(stdout);
+	
+	
+
+	int czy_vip = 0;
+	if (rand() % 100 < 2) {
+		czy_vip = 1;
+	}
+
 
 	sem_p(sem_id, SEM_BLOKADA);
 
@@ -55,6 +61,14 @@ int main() {
 	sem_v(sem_id, SEM_BLOKADA);;
 
 
+	if (czy_vip) {
+		printf("[VIP %d] Przychodzi\n", getpid());
+	}
+	else {
+		printf("GRUPA o PID = %d przychodzi\n", getpid());
+	}
+	fflush(stdout);
+
 		sleep(rand() % 6 + 2);
 
 		//Generowanie grupy klientow
@@ -66,9 +80,17 @@ int main() {
 		int semafor_docelowy = -1;
 		int ilosc_do_zajecia = 1;	//Dla stolika 1, dla lady to faktyczna liczba osob
 
+	
+
 		int czy_lada = 0;
-		if (dzieci == 0 && liczba_osob <= 2) {
-			if (rand() % 2 == 0) czy_lada = 1;	//50% szans na lade dla grup do 2 osob
+
+		if (czy_vip) {
+			czy_lada = 0;
+		}
+		else {
+			if (dzieci == 0 && liczba_osob <= 2) {
+				if (rand() % 2 == 0) czy_lada = 1;	//50% szans na lade dla grup do 2 osob
+			}
 		}
 		
 		if (czy_lada) {

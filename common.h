@@ -77,12 +77,14 @@ void sem_p(int sem_id, int sem_num) {
 	buf.sem_op = -1;
 	buf.sem_flg = 0;
 	if (semop(sem_id, &buf, 1) == -1) {
+		//Ignorowanie bladu usuniecia semafora 
+		if (errno == EIDRM || errno == EINVAL) {
+			exit(0);
+		}
 		perror("Blad sem_p");
 		exit(1);
 	}
-	//else {
-	//	printf("Semafor zostal zamkniety\n");
-	//}
+	
 }
 
 void sem_v(int sem_id, int sem_num) {
@@ -91,12 +93,13 @@ void sem_v(int sem_id, int sem_num) {
 	buf.sem_op = 1;
 	buf.sem_flg = 0;
 	if (semop(sem_id, &buf, 1) == -1) {
+		if (errno == EIDRM || errno == EINVAL) {
+			exit(0);
+		}
 		perror("Blad sem_v");
 		exit(1);
 	}
-	//else {
-	//	printf("Semafor zostal otwarty\n");
-	//}
+	
 }
 
 void sem_zmiana(int sem_id, int sem_num, int delta) {
@@ -105,6 +108,9 @@ void sem_zmiana(int sem_id, int sem_num, int delta) {
 	buf.sem_op = delta;
 	buf.sem_flg = 0;
 	if (semop(sem_id, &buf, 1) == -1) {
+		if (errno == EIDRM || errno == EINVAL) {
+			exit(0);
+		}
 		perror("Blad sem_zmiana");
 		exit(1);
 	}

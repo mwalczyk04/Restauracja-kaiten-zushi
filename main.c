@@ -18,7 +18,7 @@ void sprzatanie() {
 	printf("[Manager] Zamykanie restauracji\n");
 	
 	kill(0, SIGTERM);	//Sygnal KILL dla wszystkich procesow
-	usleep(100000);
+	sleep(1);
 
 	if (adres_restauracji != NULL) {
 		if (shmdt(adres_restauracji) == -1) {
