@@ -1,9 +1,42 @@
 #include "common.h"
 #include <time.h>
+#include <signal.h>
 
 #define SHM_SIZE sizeof(Restauracja)
 
+//volatile aby kompilator wiedzial ze zmienna zmienia sie nagle 
+volatile int opoznienie_bazowe = 200000;
+
+void obsluga_sygnalow(int sig) {
+	if (sig == SIGUSR1) {
+		//Przyspieszenie
+		opoznienie_bazowe = opoznienie_bazowe / 2;
+
+		if (opoznienie_bazowe < 20000) opoznienie_bazowe = 20000;	//Zabezpieczenie dla kucharza
+
+		char msg[] = "\n[Kucharz] Otrzymalem sygnal SIGUSR1 przyspieszam (2x)\n\n";
+		write(1, msg, sizeof(msg) - 1);
+	}
+	else if (sig == SIGUSR2) {
+		//Zwolnienie
+		opoznienie_bazowe = opoznienie_bazowe * 2;
+
+		char msg[] = "\n[Kucharz] Otrzymalem sygnal SIGUSR2 zwalniam (0.5x)\n\n";
+		write(1, msg, sizeof(msg) - 1);
+	}
+	else if (sig == SIGTERM) {
+		char msg[] = "\n[Kucharz] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n";
+		write(1, msg, sizeof(msg) - 1);
+		_exit(0);	//Natychamiastowe wyjscie
+	}
+}
+
 int main() {
+	signal(SIGINT, SIG_IGN);	//Ignorowanie Ctrl+C
+	signal(SIGUSR1, obsluga_sygnalow);
+	signal(SIGUSR2, obsluga_sygnalow);
+	signal(SIGTERM, obsluga_sygnalow);
+
 	srand(time(NULL) ^ getpid());
 
 	key_t klucz = ftok(".", ID_PROJEKT);
@@ -70,7 +103,7 @@ int main() {
 		}
 
 		//printf("Przygotowanie dania typu %d\n", typ_dania);
-		usleep(100000 + (rand() % 200000)); //Losowy czas przygotowania potrawy
+		usleep(opoznienie_bazowe + (rand() % 50000)); //Losowy czas przygotowania potrawy
 
 		sem_p(sem_id, SEM_WOLNE);	//Czekanie na miejsce
 		sem_p(sem_id, SEM_BLOKADA);	//Blokowanie tasmy

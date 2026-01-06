@@ -6,7 +6,16 @@
 
 #define SHM_SIZE sizeof(Restauracja)
 
+void ewakuacja(int sig) {
+	char msg[] = "\n[Obsluga] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n";
+	write(1, msg, sizeof(msg) - 1);
+	_exit(0);	//Natychamiastowe wyjscie
+}
+
 int main() {
+	signal(SIGINT, SIG_IGN);	//Ignorowanie Ctrl+C
+	signal(SIGTERM, ewakuacja);
+
 	key_t klucz_shm = ftok(".", ID_PROJEKT);
 	key_t klucz_msg = ftok(".", ID_KOLEJKA);
 	if (klucz_shm == -1 || klucz_msg == -1) {

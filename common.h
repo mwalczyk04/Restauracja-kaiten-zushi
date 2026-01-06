@@ -71,7 +71,7 @@ typedef struct {
 }Restauracja;
 
 
-void sem_p(int sem_id, int sem_num) {
+static void sem_p(int sem_id, int sem_num) {
 	struct sembuf buf;
 	buf.sem_num = sem_num;
 	buf.sem_op = -1;
@@ -87,7 +87,7 @@ void sem_p(int sem_id, int sem_num) {
 	
 }
 
-void sem_v(int sem_id, int sem_num) {
+static void sem_v(int sem_id, int sem_num) {
 	struct sembuf buf;
 	buf.sem_num = sem_num;
 	buf.sem_op = 1;
@@ -102,7 +102,7 @@ void sem_v(int sem_id, int sem_num) {
 	
 }
 
-void sem_zmiana(int sem_id, int sem_num, int delta) {
+static void sem_zmiana(int sem_id, int sem_num, int delta) {
 	struct sembuf buf;
 	buf.sem_num = sem_num;
 	buf.sem_op = delta;

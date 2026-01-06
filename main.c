@@ -12,6 +12,8 @@ int sem_id = -1;
 int msg_id = -1;
 Restauracja * adres_restauracji = NULL;
 
+
+
 void sprzatanie() {
 	
 	//printf("\nOtrzymano sygnal %d\n Zaczynam sprzatac\n", sig);
