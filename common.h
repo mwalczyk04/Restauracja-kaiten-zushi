@@ -67,6 +67,7 @@ typedef struct {
 	Zamowienie tablet[MAX_ZAMOWIEN];
 	int czy_otwarte;
 	int utarg;
+	int liczba_klientow;
 }Restauracja;
 
 

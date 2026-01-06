@@ -44,7 +44,17 @@ int main() {
 	printf("GRUPA o PID = %d przychodzi\n", getpid());
 	fflush(stdout);
 
-	while (1) {
+	sem_p(sem_id, SEM_BLOKADA);
+
+	if (adres->czy_otwarte == 0) {
+		sem_v(sem_id, SEM_BLOKADA);	//Jesli zamkniete to odchodzi
+		return 0;
+	}
+
+	adres->liczba_klientow++;
+	sem_v(sem_id, SEM_BLOKADA);;
+
+
 		sleep(rand() % 6 + 2);
 
 		//Generowanie grupy klientow
@@ -107,7 +117,7 @@ int main() {
 			
 		}
 
-		sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
+		sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);	//Zajecie miejsca
 
 		int rachunek_grupy = 0;
 
@@ -204,9 +214,11 @@ int main() {
 			printf("[GRUPA %d] Wyslano do kasy %d zl, Wychodzimy\n",getpid(),rachunek_grupy);
 		}
 
-		sem_zmiana(sem_id, semafor_docelowy, ilosc_do_zajecia);
+		sem_zmiana(sem_id, semafor_docelowy, ilosc_do_zajecia);	//Zwolnienie miejsca
 
-	}
+		sem_p(sem_id, SEM_BLOKADA);
+		adres->liczba_klientow--;
+		sem_v(sem_id, SEM_BLOKADA);
 
 
 	return 0;

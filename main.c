@@ -5,6 +5,7 @@
 
 #define MAX_LICZBA_KLIENTOW 40
 #define SHM_SIZE sizeof(Restauracja)
+#define CZAS_OTWARCIA 30	//Czas mierzony w sekundach
 
 int shm_id = -1;
 int sem_id = -1;
@@ -17,6 +18,7 @@ void sprzatanie() {
 	printf("[Manager] Zamykanie restauracji\n");
 	
 	kill(0, SIGTERM);	//Sygnal KILL dla wszystkich procesow
+	usleep(100000);
 
 	if (adres_restauracji != NULL) {
 		if (shmdt(adres_restauracji) == -1) {
@@ -144,19 +146,33 @@ int main() {
 	uruchom_proces("./obsluga", "obsluga");
 	printf("[Manager] Obsluga aktywna\n");
 
-	printf("[Manager] Aktywowanie klientow\n");
-	for (int i = 0;i < MAX_LICZBA_KLIENTOW;i++) {
-		uruchom_proces("./klient", "klient");
-
-		usleep(50000);	//Opoznienie 50ms
-	}
+	//printf("[Manager] Aktywowanie klientow\n");
+	//for (int i = 0;i < MAX_LICZBA_KLIENTOW;i++) {
+	//	uruchom_proces("./klient", "klient");
+	//
+	//	usleep(50000);	//Opoznienie 50ms
+	//}
 	
 
 	printf("Restauracja otwarta ID pamieci = %d, miejsce: LADA = %d , 1 OS = %d , 2 OS = %d , 3 OS = %d , 4 OS = %d\n", shm_id, ILOSC_MIEJSC_LADA, ILOSC_1_OS, ILOSC_2_OS, ILOSC_3_OS, ILOSC_4_OS);
 	
-	while (1) {
+	for (int t = 0;t < CZAS_OTWARCIA;t++) {
+
+		if (rand() % 100 < 75) {	//75% ze klient sie pojawi	//Moze potem zmienic
+			uruchom_proces("./klient", "klient");
+		}
+		sleep(1);
+		printf("[Zegar] Do zamkniecia %d\n", CZAS_OTWARCIA - t);
+	}
+	printf("[Manager] Koniec czasu! Drzwi zamkniete\n");
+	adres_restauracji->czy_otwarte = 0;
+
+	while (adres_restauracji->liczba_klientow > 0) {
+		printf("[Manager] Pozostalo %d klientow w srodku\n", adres_restauracji->liczba_klientow);
 		sleep(1);
 	}
+	sleep(1);
+	sprzatanie();
 
 	return 0;
 }

@@ -57,6 +57,14 @@ int main() {
 		sem_v(sem_id, SEM_BLOKADA);
 
 		if (typ_do_ugotowania == 0) {
+
+			int wolne_miejsce = semctl(sem_id, SEM_WOLNE, GETVAL);	//Pobieramy wartosc semafora 
+
+			if (wolne_miejsce < 3) {
+				usleep(200000);
+				continue;	//Czeka chwile i wraca na poczatek petli while
+			}
+
 			typ_do_ugotowania = (rand() % 3) + 1;
 			dla_kogo = 0;
 		}
