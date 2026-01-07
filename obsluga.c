@@ -3,12 +3,59 @@
 #include <unistd.h>
 #include <time.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #define SHM_SIZE sizeof(Restauracja)
 
+Restauracja* adres_globalny = NULL;
+
+int pobierz_cene(int typ) {
+	if (typ == 1)return CENA_DANIA_1;
+	if (typ == 2)return CENA_DANIA_2;
+	if (typ == 3)return CENA_DANIA_3;
+	if (typ == 4)return CENA_DANIA_4;
+	if (typ == 5)return CENA_DANIA_5;
+	if (typ == 6)return CENA_DANIA_6;
+	return 0;
+}
+
 void ewakuacja(int sig) {
-	char msg[] = "\n[Obsluga] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n";
-	write(1, msg, sizeof(msg) - 1);
+	usleep(200000);
+	if (adres_globalny == NULL)_exit(0);
+	if (adres_globalny->czy_ewakuacja == 1) {
+		printf("\n[Obsluga] Otrzymalem sygnal SIGTERM.Ewakuacja\n\n");
+	}
+	else {
+		printf("[Obsluga] Koniec zmiany\n");
+	}
+
+	printf("=======================================\n");
+	printf("[Obsluga] RAPORT FINANSOWY:\n");
+	printf(" Utarg: %d zl\n", adres_globalny->utarg);
+	printf(" Zmarnowane jedzienie:\n");
+	int strata = 0;
+	int znalezione = 0;
+
+	for (int i = 0;i < MAX_TASMA;i++) {
+		int typ = adres_globalny->tasma[i].rodzaj;
+
+		if (typ != 0) {
+			int cena = pobierz_cene(typ);
+			printf(" - Pozycja %2d: Danie typu %d o wartosci %d zl\n", i, typ, cena);
+			strata += cena;
+			znalezione = 1;
+		}
+
+	}
+	if (!znalezione) {
+		printf("Tasma pusta , brak strat\n");
+	}
+	else {
+		printf("LACZNA WARTOSC STRAT: %d zl\n", strata);
+	}
+	printf("=======================================\n");
+
+	
 	_exit(0);	//Natychamiastowe wyjscie
 }
 
@@ -40,6 +87,7 @@ int main() {
 		perror("Blad przylaczania do pamieci | obsluga");
 		exit(1);
 	}
+	adres_globalny = adres;
 
 	printf("[Obsluga] Kasjer gotowy. Czekanie na platnosci\n");
 

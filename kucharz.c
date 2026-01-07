@@ -1,11 +1,28 @@
 #include "common.h"
 #include <time.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #define SHM_SIZE sizeof(Restauracja)
 
 //volatile aby kompilator wiedzial ze zmienna zmienia sie nagle 
 volatile int opoznienie_bazowe = 200000;
+
+//Zmienne do raportu koncowego
+int wyprodukowane[7] = { 0 };
+int laczna_wartosc = 0;
+
+int pobierz_cene(int typ) {
+	if (typ == 1)return CENA_DANIA_1;
+	if (typ == 2)return CENA_DANIA_2;
+	if (typ == 3)return CENA_DANIA_3;
+	if (typ == 4)return CENA_DANIA_4;
+	if (typ == 5)return CENA_DANIA_5;
+	if (typ == 6)return CENA_DANIA_6;
+	return 0;
+}
+
+Restauracja* adres_globalny = NULL;
 
 void obsluga_sygnalow(int sig) {
 	if (sig == SIGUSR1) {
@@ -25,8 +42,24 @@ void obsluga_sygnalow(int sig) {
 		write(1, msg, sizeof(msg) - 1);
 	}
 	else if (sig == SIGTERM) {
-		char msg[] = "\n[Kucharz] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n";
-		write(1, msg, sizeof(msg) - 1);
+
+		if (adres_globalny != NULL && adres_globalny->czy_ewakuacja == 1) {
+			printf("\n[Kucharz] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n");
+		}
+		else {
+			printf("[Kucharz] Koniec zmiany\n");
+		}
+
+		printf("=======================================\n");
+		printf("[Kucharz] RAPORT PRODUKCJI:\n");
+		for (int i = 0;i <= 6;i++) {
+			if (wyprodukowane[i] > 0) {
+				printf("- Danie typ %d, %d sztuk, cena za sztuke %d zl\n", i, wyprodukowane[i], pobierz_cene(i));
+			}
+			
+		}
+		printf(" LACZNA WARTOSC: %d zl\n", laczna_wartosc);
+		printf("=======================================\n");
 		_exit(0);	//Natychamiastowe wyjscie
 	}
 }
@@ -62,6 +95,7 @@ int main() {
 		perror("Blad przylaczania do pamieci | kucharz");
 		exit(1);
 	}
+	adres_globalny = adres;
 
 
 	printf("Kucharz zaczyna prace PID = %d\n", getpid());
@@ -115,6 +149,10 @@ int main() {
 				adres->tasma[i].rezerwacja_dla = dla_kogo;
 				adres->tasma[i].cena = 0;
 				pozycja = i;
+
+				wyprodukowane[typ_do_ugotowania]++;
+				laczna_wartosc += pobierz_cene(typ_do_ugotowania);
+
 				break;
 			}
 		}
@@ -124,10 +162,10 @@ int main() {
 
 		if (pozycja != -1) {
 			if (dla_kogo != 0) {
-				printf("[Kucharz] Danie SPECJALNE typy %d polozone na pozycji %d dla %d\n", typ_do_ugotowania, pozycja, dla_kogo);
+				printf("[Kucharz] Danie SPECJALNE typy %d polozone na tasmie dla %d\n", typ_do_ugotowania, dla_kogo);
 			}
 			else {
-				printf("[Kucharz] Danie standardowe typu %d polozone na pozycji %d\n", typ_do_ugotowania, pozycja);
+				printf("[Kucharz] Danie standardowe typu %d polozone na tasmie\n", typ_do_ugotowania);
 			}
 		}
 	}

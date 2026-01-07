@@ -68,6 +68,7 @@ typedef struct {
 	int czy_otwarte;
 	int utarg;
 	int liczba_klientow;
+	int czy_ewakuacja;	//0 = Normalny koniec 1 = Ewakuacja
 }Restauracja;
 
 

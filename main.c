@@ -13,7 +13,6 @@ int msg_id = -1;
 Restauracja * adres_restauracji = NULL;
 
 
-
 void sprzatanie() {
 	
 	//printf("\nOtrzymano sygnal %d\n Zaczynam sprzatac\n", sig);
@@ -75,10 +74,17 @@ void uruchom_proces(const char* sciezka, const char* nazwa) {
 	}
 }
 
+void obsluga_sygnalu_3(int sig) {
+	if (adres_restauracji != NULL) {
+		adres_restauracji->czy_ewakuacja = 1;
+		printf("\n[Manager] Otrzymano sygnal 3. Ewakuacja\n\n");
+	}
+	sprzatanie();
+}
 
 int main() {
 	signal(SIGTERM, SIG_IGN);	//Blokada zeby kill nie zabil Managera
-	signal(SIGINT, sprzatanie);// ctrl+c == sprzatanie
+	signal(SIGINT, obsluga_sygnalu_3);// ctrl+c == sygnal 3 ewakuacja
 
 	//Ustawienie klucza
 	key_t klucz_shm = ftok(".", ID_PROJEKT);
@@ -127,6 +133,7 @@ int main() {
 	semctl(sem_id, SEM_STOL_4, SETVAL, ILOSC_4_OS * 4);
 
 	//Inicjalizacja pamieci
+	adres_restauracji->czy_ewakuacja = 0;
 	adres_restauracji->czy_otwarte = 1;
 	adres_restauracji->utarg = 0;
 
