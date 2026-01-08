@@ -95,7 +95,7 @@ int main() {
 	}
 
 	//Ustawienie pamieci
-	shm_id = shmget(klucz_shm, SHM_SIZE, IPC_CREAT | 0666);
+	shm_id = shmget(klucz_shm, SHM_SIZE, IPC_CREAT | 0600);
 	if (shm_id == -1) {
 		perror("Blad podlaczania segmentu pamieci dzielonej!");
 		exit(1);
@@ -107,14 +107,14 @@ int main() {
 		exit(1);
 	}
 
-	sem_id = semget(klucz_shm, 8, IPC_CREAT | 0666);
+	sem_id = semget(klucz_shm, 8, IPC_CREAT | 0600);
 	if (sem_id == -1) {
 		perror("Blad tworzenia semaforow");
 		sprzatanie();
 		exit(1);
 	}
 
-	msg_id = msgget(klucz_msg, IPC_CREAT | 0666);
+	msg_id = msgget(klucz_msg, IPC_CREAT | 0600);
 	if (msg_id == -1) {
 		perror("Blad msgget");
 		sprzatanie();

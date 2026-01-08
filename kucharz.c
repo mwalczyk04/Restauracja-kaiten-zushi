@@ -78,13 +78,13 @@ int main() {
 		exit(1);
 	}
 
-	int shm_id = shmget(klucz, SHM_SIZE, 0666);
+	int shm_id = shmget(klucz, SHM_SIZE, 0600);
 	if (shm_id == -1) {
 		perror("Blad podlaczania segmentu pamieci dzielonej!");
 		exit(1);
 	}
 
-	int sem_id = semget(klucz, 0, 0666);
+	int sem_id = semget(klucz, 0, 0600);
 	if (sem_id == -1) {
 		perror("Blad semaforow");
 		exit(1);

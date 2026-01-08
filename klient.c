@@ -15,19 +15,19 @@ int main() {
 		exit(1);
 	}
 
-	int shm_id = shmget(klucz_shm, SHM_SIZE, 0666);
+	int shm_id = shmget(klucz_shm, SHM_SIZE, 0600);
 	if (shm_id == -1) {
 		perror("Blad podlaczania segmentu pamieci dzielonej!");
 		exit(1);
 	}
 
-	int sem_id = semget(klucz_shm, 0, 0666);
+	int sem_id = semget(klucz_shm, 0, 0600);
 	if (sem_id == -1) {
 		perror("Blad semaforow");
 		exit(1);
 	}
 
-	int msg_id = msgget(klucz_msg, 0666);
+	int msg_id = msgget(klucz_msg, 0600);
 	if (msg_id == -1) {
 		perror("Blad msgget");
 		exit(1);
