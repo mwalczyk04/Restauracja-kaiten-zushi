@@ -136,6 +136,7 @@ int main() {
 	adres_restauracji->czy_ewakuacja = 0;
 	adres_restauracji->czy_otwarte = 1;
 	adres_restauracji->utarg = 0;
+	adres_restauracji->licznik_numer_stolika = 1;
 
 	//Zerowanie tasmy
 	for (int i = 0;i < MAX_TASMA;i++) {
@@ -155,12 +156,6 @@ int main() {
 	uruchom_proces("./obsluga", "obsluga");
 	printf("[Manager] Obsluga aktywna\n");
 
-	//printf("[Manager] Aktywowanie klientow\n");
-	//for (int i = 0;i < MAX_LICZBA_KLIENTOW;i++) {
-	//	uruchom_proces("./klient", "klient");
-	//
-	//	usleep(50000);	//Opoznienie 50ms
-	//}
 	
 
 	printf("Restauracja otwarta ID pamieci = %d, miejsce: LADA = %d , 1 OS = %d , 2 OS = %d , 3 OS = %d , 4 OS = %d\n", shm_id, ILOSC_MIEJSC_LADA, ILOSC_1_OS, ILOSC_2_OS, ILOSC_3_OS, ILOSC_4_OS);

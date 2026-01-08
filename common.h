@@ -24,6 +24,7 @@
 #define SEM_STOL_2 5
 #define SEM_STOL_3 6
 #define SEM_STOL_4 7
+#define MAX_LICZBA_STOLIKOW 50
 
 // Mozliwosci stolikow
 #define ILOSC_1_OS 4
@@ -69,6 +70,7 @@ typedef struct {
 	int utarg;
 	int liczba_klientow;
 	int czy_ewakuacja;	//0 = Normalny koniec 1 = Ewakuacja
+	int licznik_numer_stolika;
 }Restauracja;
 
 
