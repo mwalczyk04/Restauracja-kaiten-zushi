@@ -63,6 +63,52 @@ void sprzatanie() {
 
 }
 
+void naped_tasmy() {
+	printf("[Manager] Tasma ruszyla (PID %d)\n", getpid());
+
+	while (adres_restauracji->czy_otwarte == 1 || adres_restauracji->liczba_klientow > 0) {
+
+		if (adres_restauracji->czy_ewakuacja)break;
+
+		usleep(50000);
+	}
+	struct sembuf tasma_blokada;
+	tasma_blokada.sem_num = SEM_BLOKADA;
+	tasma_blokada.sem_op = -1;
+	tasma_blokada.sem_flg = 0;
+	if (semop(sem_id, &tasma_blokada, 1) == -1) {
+		//Ignorowanie bladu usuniecia semafora 
+		if (errno == EIDRM || errno == EINVAL) {
+			exit(0);
+		}
+		perror("Blad tasma semafor");
+		exit(1);
+	}
+
+	Talerz ostatni = adres_restauracji->tasma[MAX_TASMA - 1];
+
+	for (int i = MAX_TASMA - 1;i > 0;i--) {
+		adres_restauracji->tasma[i] = adres_restauracji->tasma[i - 1];
+	}
+	adres_restauracji->tasma[0] = ostatni;
+	
+	struct sembuf tasma_odblokowana;
+	tasma_odblokowana.sem_num = SEM_BLOKADA;
+	tasma_odblokowana.sem_op = 1;
+	tasma_odblokowana.sem_flg = 0;
+	if (semop(sem_id, &tasma_odblokowana, 1) == -1) {
+		//Ignorowanie bladu usuniecia semafora 
+		if (errno == EIDRM || errno == EINVAL) {
+			exit(0);
+		}
+		perror("Blad tasma semafor");
+		exit(1);
+	}
+	printf("[Manager] Tasma sie zatrzymala\n");
+	exit(0);
+}
+
+
 void uruchom_proces(const char* sciezka, const char* nazwa) {
 	pid_t pid = fork();
 
@@ -136,6 +182,7 @@ int main() {
 	adres_restauracji->czy_ewakuacja = 0;
 	adres_restauracji->czy_otwarte = 1;
 	adres_restauracji->utarg = 0;
+	adres_restauracji->liczba_klientow = 0;
 	adres_restauracji->licznik_numer_stolika = 1;
 
 	//Zerowanie tasmy
@@ -166,7 +213,7 @@ int main() {
 			uruchom_proces("./klient", "klient");
 		}
 		sleep(1);
-		printf("[Zegar] Do zamkniecia %d\n", CZAS_OTWARCIA - t);
+		//printf("[Zegar] Do zamkniecia %d\n", CZAS_OTWARCIA - t);
 	}
 	printf("[Manager] Koniec czasu! Drzwi zamkniete\n");
 	adres_restauracji->czy_otwarte = 0;
