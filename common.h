@@ -24,7 +24,6 @@
 #define SEM_STOL_2 5
 #define SEM_STOL_3 6
 #define SEM_STOL_4 7
-#define MAX_LICZBA_STOLIKOW 50
 
 // Mozliwosci stolikow
 #define ILOSC_1_OS 4
@@ -32,6 +31,7 @@
 #define ILOSC_3_OS 4
 #define ILOSC_4_OS 4
 #define ILOSC_MIEJSC_LADA 10
+#define MAX_LICZBA_STOLIKOW (ILOSC_1_OS + ILOSC_2_OS + ILOSC_3_OS + ILOSC_4_OS)
 
 //Cennik dan
 //Podstawowe
@@ -70,7 +70,7 @@ typedef struct {
 	int utarg;
 	int liczba_klientow;
 	int czy_ewakuacja;	//0 = Normalny koniec 1 = Ewakuacja
-	int licznik_numer_stolika;
+	int stoly[MAX_LICZBA_STOLIKOW];	// 0 = wolny  1 = zajety
 }Restauracja;
 
 

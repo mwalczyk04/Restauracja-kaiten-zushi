@@ -101,6 +101,7 @@ int main() {
 	printf("Kucharz zaczyna prace PID = %d\n", getpid());
 
 	while (1) {
+		if (adres->czy_ewakuacja)break;
 
 		int typ_do_ugotowania = 0;
 		int dla_kogo = 0;
@@ -139,33 +140,40 @@ int main() {
 		//printf("Przygotowanie dania typu %d\n", typ_dania);
 		usleep(opoznienie_bazowe + (rand() % 50000)); //Losowy czas przygotowania potrawy
 
-		sem_p(sem_id, SEM_WOLNE);	//Czekanie na miejsce
-		sem_p(sem_id, SEM_BLOKADA);	//Blokowanie tasmy
+		//sem_p(sem_id, SEM_WOLNE);	//Czekanie na miejsce
+		//sem_p(sem_id, SEM_BLOKADA);	//Blokowanie tasmy
 
-		int pozycja = -1;
-		for (int i = 0;i < MAX_TASMA;i++) {
-			if (adres->tasma[i].rodzaj == 0) {
-				adres->tasma[i].rodzaj = typ_do_ugotowania;
-				adres->tasma[i].rezerwacja_dla = dla_kogo;
-				adres->tasma[i].cena = 0;
-				pozycja = i;
+		int czy_polozono = 0;
 
+		while (!czy_polozono) {
+			if (adres->czy_ewakuacja)break;
+
+			sem_p(sem_id, SEM_BLOKADA);
+
+			if (adres->tasma[0].rodzaj == 0) {
+				adres->tasma[0].rodzaj = typ_do_ugotowania;
+				adres->tasma[0].rezerwacja_dla = dla_kogo;
+				adres->tasma[0].cena = 0;
+				
 				wyprodukowane[typ_do_ugotowania]++;
 				laczna_wartosc += pobierz_cene(typ_do_ugotowania);
 
-				break;
-			}
-		}
+				sem_p(sem_id, SEM_WOLNE);
 
-		sem_v(sem_id, SEM_BLOKADA);	//Odblokowanie tasmy
-		sem_v(sem_id, SEM_ZAJETE);	//Informowanie ze danie gotowe
-
-		if (pozycja != -1) {
-			if (dla_kogo != 0) {
-				printf("[Kucharz] Danie SPECJALNE typy %d polozone na tasmie dla %d\n", typ_do_ugotowania, dla_kogo);
+				czy_polozono = 1;
+			
+				if (dla_kogo != 0) {
+					printf("[Kucharz] Danie SPECJALNE typy %d polozone na tasmie dla %d\n", typ_do_ugotowania, dla_kogo);
+				}
+				else {
+					printf("[Kucharz] Danie standardowe typu %d polozone na tasmie\n", typ_do_ugotowania);
+				}
 			}
-			else {
-				printf("[Kucharz] Danie standardowe typu %d polozone na tasmie\n", typ_do_ugotowania);
+			sem_v(sem_id, SEM_BLOKADA);
+
+			if (!czy_polozono) {
+				//Jesli nie udalo sie polozyc to czeka
+				usleep(50000);
 			}
 		}
 	}

@@ -70,39 +70,40 @@ void naped_tasmy() {
 
 		if (adres_restauracji->czy_ewakuacja)break;
 
-		usleep(50000);
-	}
-	struct sembuf tasma_blokada;
-	tasma_blokada.sem_num = SEM_BLOKADA;
-	tasma_blokada.sem_op = -1;
-	tasma_blokada.sem_flg = 0;
-	if (semop(sem_id, &tasma_blokada, 1) == -1) {
-		//Ignorowanie bladu usuniecia semafora 
-		if (errno == EIDRM || errno == EINVAL) {
-			exit(0);
-		}
-		perror("Blad tasma semafor");
-		exit(1);
-	}
+		usleep(500000);
 
-	Talerz ostatni = adres_restauracji->tasma[MAX_TASMA - 1];
-
-	for (int i = MAX_TASMA - 1;i > 0;i--) {
-		adres_restauracji->tasma[i] = adres_restauracji->tasma[i - 1];
-	}
-	adres_restauracji->tasma[0] = ostatni;
-	
-	struct sembuf tasma_odblokowana;
-	tasma_odblokowana.sem_num = SEM_BLOKADA;
-	tasma_odblokowana.sem_op = 1;
-	tasma_odblokowana.sem_flg = 0;
-	if (semop(sem_id, &tasma_odblokowana, 1) == -1) {
-		//Ignorowanie bladu usuniecia semafora 
-		if (errno == EIDRM || errno == EINVAL) {
-			exit(0);
+		struct sembuf tasma_blokada;
+		tasma_blokada.sem_num = SEM_BLOKADA;
+		tasma_blokada.sem_op = -1;
+		tasma_blokada.sem_flg = 0;
+		if (semop(sem_id, &tasma_blokada, 1) == -1) {
+			//Ignorowanie bladu usuniecia semafora 
+			if (errno == EIDRM || errno == EINVAL) {
+				exit(0);
+			}
+			perror("Blad tasma semafor");
+			exit(1);
 		}
-		perror("Blad tasma semafor");
-		exit(1);
+
+		Talerz ostatni = adres_restauracji->tasma[MAX_TASMA - 1];
+
+		for (int i = MAX_TASMA - 1;i > 0;i--) {
+			adres_restauracji->tasma[i] = adres_restauracji->tasma[i - 1];
+		}
+		adres_restauracji->tasma[0] = ostatni;
+
+		struct sembuf tasma_odblokowana;
+		tasma_odblokowana.sem_num = SEM_BLOKADA;
+		tasma_odblokowana.sem_op = 1;
+		tasma_odblokowana.sem_flg = 0;
+		if (semop(sem_id, &tasma_odblokowana, 1) == -1) {
+			//Ignorowanie bladu usuniecia semafora 
+			if (errno == EIDRM || errno == EINVAL) {
+				exit(0);
+			}
+			perror("Blad tasma semafor");
+			exit(1);
+		}
 	}
 	printf("[Manager] Tasma sie zatrzymala\n");
 	exit(0);
@@ -183,7 +184,10 @@ int main() {
 	adres_restauracji->czy_otwarte = 1;
 	adres_restauracji->utarg = 0;
 	adres_restauracji->liczba_klientow = 0;
-	adres_restauracji->licznik_numer_stolika = 1;
+
+	for (int i = 0;i < MAX_LICZBA_STOLIKOW;i++) {
+		adres_restauracji->stoly[i] = 0;
+	}
 
 	//Zerowanie tasmy
 	for (int i = 0;i < MAX_TASMA;i++) {
@@ -195,6 +199,9 @@ int main() {
 		adres_restauracji->tablet[i].pid_klienta = 0;
 		adres_restauracji->tablet[i].typ_dania = 0;
 	}
+	if (fork() == 0) {
+		naped_tasmy();	//Uruchomienei tasmy w osobnym procesie
+	}
 
 	//Uruchamianie procesow
 	uruchom_proces("./kucharz", "kucharz");
@@ -202,8 +209,6 @@ int main() {
 
 	uruchom_proces("./obsluga", "obsluga");
 	printf("[Manager] Obsluga aktywna\n");
-
-	
 
 	printf("Restauracja otwarta ID pamieci = %d, miejsce: LADA = %d , 1 OS = %d , 2 OS = %d , 3 OS = %d , 4 OS = %d\n", shm_id, ILOSC_MIEJSC_LADA, ILOSC_1_OS, ILOSC_2_OS, ILOSC_3_OS, ILOSC_4_OS);
 	
@@ -219,7 +224,7 @@ int main() {
 	adres_restauracji->czy_otwarte = 0;
 
 	while (adres_restauracji->liczba_klientow > 0) {
-		printf("[Manager] Pozostalo %d klientow w srodku\n", adres_restauracji->liczba_klientow);
+		printf("[Manager] Pozostalo %d grup w srodku\n", adres_restauracji->liczba_klientow);
 		sleep(1);
 	}
 	sleep(1);

@@ -13,6 +13,10 @@ int sem_id;
 int pid_grupy;
 int czy_vip = 0;
 
+//Globalny numer zeby watki wiedzialy gdzie siedza
+// 0 = lada  1+ numer stolika
+int numer_stolika_globalny = 0;
+
 int rachunek_grupy = 0;
 pthread_mutex_t mutex_rachunek = PTHREAD_MUTEX_INITIALIZER;
 
@@ -66,74 +70,82 @@ void* zachowanie_osoby(void* arg) {
 
 			if (adres->czy_ewakuacja == 1) break;
 
-			sem_p(sem_id, SEM_ZAJETE);
+			int strefa_lady = ILOSC_MIEJSC_LADA;
+			int moj_id_tasmy;
+
+			if (numer_stolika_globalny > 0) {
+				//Stolik patrzy na tasme po ladzie
+				moj_id_tasmy = (numer_stolika_globalny - 1) + strefa_lady;
+			}
+			else {
+				//Losowe miejscie przy ladzie
+				moj_id_tasmy = rand() % strefa_lady;
+			}
+
+			if (moj_id_tasmy >= MAX_TASMA) {
+				//Zapetlenie zeby nie wyjsc poza zakres
+				moj_id_tasmy = moj_id_tasmy % MAX_TASMA;
+			}
+
 			sem_p(sem_id, SEM_BLOKADA);
+
+			int typ_zjedzony = adres->tasma[moj_id_tasmy].rodzaj;
+			int rezerwacja = adres->tasma[moj_id_tasmy].rezerwacja_dla;
+			int moje_zamowienie = 0;
+
+			if (czy_specjal && rezerwacja == pid_grupy && typ_zjedzony == typ_zamowiony) moje_zamowienie = 1;
+			if (!czy_specjal && rezerwacja == 0 && typ_zjedzony == typ_zamowiony) moje_zamowienie = 1;
 
 			cierpliwosc++;
 			int wez_cokolwiek = 0;
 
-			//Jesli czeka 3-4 sekundy bierze cokolwiek
-			if (cierpliwosc > 100) {
-				wez_cokolwiek = 1;
-			}
-
-			for (int i = 0;i < MAX_TASMA;i++) {
-				if (adres->tasma[i].rodzaj != 0) {
-					int typ_zjedzony = adres->tasma[i].rodzaj;
-					int rezerwacja = adres->tasma[i].rezerwacja_dla;
-					int do_zaplaty = 0;
-					int dla_mnie = 0;
-
-					
-
-
-					if (typ_zjedzony == 1) { do_zaplaty = CENA_DANIA_1; }
-					else if (typ_zjedzony == 2) { do_zaplaty = CENA_DANIA_2; }
-					else if (typ_zjedzony == 3) { do_zaplaty = CENA_DANIA_3; }
-					else if (typ_zjedzony == 4) { do_zaplaty = CENA_DANIA_4; }
-					else if (typ_zjedzony == 5) { do_zaplaty = CENA_DANIA_5; }
-					else if (typ_zjedzony == 6) { do_zaplaty = CENA_DANIA_6; }
-
-					int moje_zamowienie = 0;
-					if (czy_specjal && rezerwacja == pid_grupy && typ_zjedzony == typ_zamowiony) moje_zamowienie = 1;
-					if (!czy_specjal && rezerwacja == 0 && typ_zjedzony == typ_zamowiony) moje_zamowienie = 1;
-
-					//Warunek ratunkowy jakby nie bylo na tasmie tego co klient chce
-					if (wez_cokolwiek && rezerwacja == 0) moje_zamowienie = 1;
-
-					if (moje_zamowienie) {
-						pthread_mutex_lock(&mutex_rachunek);
-						rachunek_grupy += do_zaplaty;
-						pthread_mutex_unlock(&mutex_rachunek);
-
-						adres->tasma[i].rodzaj = 0;
-						adres->tasma[i].rezerwacja_dla = 0;
-						zjedzone = 1;
-
-						if(wez_cokolwiek){
-							printf("[%s %d] Nie bylo tego co chcialem (%d) , wzialem inne zamowienie standardowe %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy,typ_zamowiony, typ_zjedzony);
-						}
-						else {
-							if (czy_specjal) {
-								printf("[%s %d] Otrzymano zamowienie SPECJALNE %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy, typ_zjedzony);
-							}
-							else {
-								printf("[%s %d] Otrzymano zamowienie STANDARDOWE %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy, typ_zjedzony);
-							}
-						}
-						break;
-					}
-				
+			//Jesli czeka kilka sekund bierze cokolwiek
+			if (cierpliwosc > 300) {
+				if (typ_zjedzony != 0 && rezerwacja == 0 && typ_zjedzony <= 3) {
+					wez_cokolwiek = 1;
 				}
 			}
 
+			//Warunek ratunkowy jakby nie bylo na tasmie tego co klient chce
+			if (wez_cokolwiek && rezerwacja == 0) moje_zamowienie = 1;
+
+
+			if (moje_zamowienie) {
+
+				int do_zaplaty = 0;
+				if (typ_zjedzony == 1) { do_zaplaty = CENA_DANIA_1; }
+				else if (typ_zjedzony == 2) { do_zaplaty = CENA_DANIA_2; }
+				else if (typ_zjedzony == 3) { do_zaplaty = CENA_DANIA_3; }
+				else if (typ_zjedzony == 4) { do_zaplaty = CENA_DANIA_4; }
+				else if (typ_zjedzony == 5) { do_zaplaty = CENA_DANIA_5; }
+				else if (typ_zjedzony == 6) { do_zaplaty = CENA_DANIA_6; }
+
+				pthread_mutex_lock(&mutex_rachunek);
+				rachunek_grupy += do_zaplaty;
+				pthread_mutex_unlock(&mutex_rachunek);
+
+				adres->tasma[moj_id_tasmy].rodzaj = 0;
+				adres->tasma[moj_id_tasmy].rezerwacja_dla = 0;
+				zjedzone = 1;
+
+				if (wez_cokolwiek) {
+					printf("[%s %d] Nie bylo tego co chcialem (%d) , wzialem inne zamowienie standardowe %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy, typ_zamowiony, typ_zjedzony);
+				}
+				else {
+					if (czy_specjal) {
+						printf("[%s %d] Otrzymano zamowienie SPECJALNE %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy, typ_zjedzony);
+					}
+					else {
+						printf("[%s %d] Otrzymano zamowienie STANDARDOWE %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy, typ_zjedzony);
+					}
+				}
+			}
 			sem_v(sem_id, SEM_BLOKADA);
 
 			if (zjedzone) {
 				sem_v(sem_id, SEM_WOLNE);
 			}
 			else {
-				sem_v(sem_id, SEM_ZAJETE);	//Oddaje semafor jak nic nie wzial
 				usleep(50000);
 			}
 
@@ -315,16 +327,48 @@ int main() {
 		}
 		sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);	//Zajecie miejsca
 
-		int nr_stolika = 0;
+		int moj_id_tablicy = -1;
+		numer_stolika_globalny = 0;
+
 		sem_p(sem_id, SEM_BLOKADA);
 		if (semafor_docelowy != SEM_LADA) {
-			nr_stolika = adres->licznik_numer_stolika++;
-			if (adres->licznik_numer_stolika > MAX_LICZBA_STOLIKOW)adres->licznik_numer_stolika = 1;
-			printf("[%s %d] Siada przy STOLIKU NR %d\n", czy_vip ? "VIP" : "GRUPA", getpid(), nr_stolika);
+			int start = 0, koniec = 0;
+
+			if (semafor_docelowy == SEM_STOL_1) {
+				start = 0;
+				koniec = ILOSC_1_OS - 1;
+			}
+			else if (semafor_docelowy == SEM_STOL_2) {
+				start = ILOSC_1_OS;
+				koniec = start + ILOSC_2_OS - 1;
+			}
+			else if (semafor_docelowy == SEM_STOL_3) {
+				start = ILOSC_1_OS + ILOSC_2_OS;
+				koniec = start + ILOSC_3_OS - 1;
+			}
+			else {
+				start = ILOSC_1_OS + ILOSC_2_OS + ILOSC_3_OS;
+				koniec = start + ILOSC_4_OS - 1;
+			}
+
+			for (int i = start;i <= koniec;i++) {
+				if (adres->stoly[i] == 0) {
+					adres->stoly[i] = 1;
+					moj_id_tablicy = i;
+					numer_stolika_globalny = i + 1;
+					break;
+				}
+			}
+			//Zabezpieczenie przed naruszeniem pamieci
+			if (moj_id_tablicy == -1)numer_stolika_globalny = 999;
+		}
+		if (semafor_docelowy != SEM_LADA) {
+			printf("[%s %d] Siada przy STOLIKU NR %d\n", czy_vip ? "VIP" : "GRUPA", getpid(), moj_id_tablicy);
 		}
 		else {
 			printf("[%s %d] Siada przy LADZIE\n", czy_vip ? "VIP" : "GRUPA", getpid());
 		}
+		
 		sem_v(sem_id, SEM_BLOKADA);
 
 		//Tworzenie osob w grupie
@@ -361,6 +405,14 @@ int main() {
 				printf("[%s %d] Wyslano do kasy %d zl, Wychodzimy\n",czy_vip?"VIP":"GRUPA",getpid(), rachunek_grupy);
 			}
 		}
+
+		//Zwolnienie id stolika
+		if (moj_id_tablicy != -1) {
+			sem_p(sem_id, SEM_BLOKADA);
+			adres->stoly[moj_id_tablicy] = 0;
+			sem_v(sem_id, SEM_BLOKADA);
+		}
+
 
 		sem_zmiana(sem_id, semafor_docelowy, ilosc_do_zajecia);	//Zwolnienie miejsca
 
