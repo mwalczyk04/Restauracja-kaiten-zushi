@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <time.h>
 #include <sys/msg.h>
+#include <stdarg.h>
 
 #define MAX_TASMA 20
 #define ID_PROJEKT 'V'	//Litera do ftok semaforow
@@ -43,6 +44,7 @@
 #define CENA_DANIA_5 50
 #define CENA_DANIA_6 60
 
+#define PLIK_RAPORT "raport.txt"
 
 
 typedef struct {
@@ -118,3 +120,25 @@ static void sem_zmiana(int sem_id, int sem_num, int delta) {
 		exit(1);
 	}
 }
+
+static void raportuj(const char* format, ...) {
+	va_list args;
+
+	//Wypisanie na ekran
+	va_start(args, format);
+	vprintf(format, args);
+	va_end(args);
+
+	//Wypisanie do pliku
+	FILE* fp = fopen(PLIK_RAPORT, "a");	//Tryb dopisywania
+	if (fp != NULL) {
+		va_start(args, format);
+		vfprintf(fp, format, args);
+		va_end(args);
+	//Wymuszenie zapisywania dla bezpieczenstwa
+	fflush(fp);
+	fclose(fp);
+	}
+}
+
+#define printf raportuj	//Podmienia kazdy printf na funkcje raportuj

@@ -21,6 +21,8 @@ void sprzatanie() {
 	kill(0, SIGTERM);	//Sygnal KILL dla wszystkich procesow
 	sleep(1);
 
+	
+
 	if (adres_restauracji != NULL) {
 		if (shmdt(adres_restauracji) == -1) {
 			perror("Blad odlaczenia pamieci dzielonej");
@@ -131,6 +133,12 @@ void obsluga_sygnalu_3(int sig) {
 int main() {
 	signal(SIGTERM, SIG_IGN);	//Blokada zeby kill nie zabil Managera
 	signal(SIGINT, obsluga_sygnalu_3);// ctrl+c == sygnal 3 ewakuacja
+
+	FILE* fp = fopen("raport.txt", "w");	//Czyszczenie pliku na start
+	if (fp) {
+		fprintf(fp, "Raport logow restauracji\n");
+		fclose(fp);
+	}
 
 	//Ustawienie klucza
 	key_t klucz_shm = ftok(".", ID_PROJEKT);
