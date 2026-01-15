@@ -70,17 +70,9 @@ int main() {
 		exit(1);
 	}
 
-	int shm_id = shmget(klucz_shm, SHM_SIZE, 0600);
-	if (shm_id == -1) {
-		perror("Blad podlaczania segmentu pamieci dzielonej!");
-		exit(1);
-	}
-
-	int msg_id = msgget(klucz_msg, IPC_CREAT | 0600);
-	if (msg_id == -1) {
-		perror("Blad msgget");
-		exit(1);
-	}
+	int shm_id = custom_error(shmget(klucz_shm, SHM_SIZE, 0600), "Blad shmget | obsluga");
+	
+	int msg_id = custom_error(msgget(klucz_msg, IPC_CREAT | 0600), "Blad msgget | obsluga");
 
 	Restauracja* adres = (Restauracja*)shmat(shm_id, NULL, 0);
 	if (adres == (void*)-1) {

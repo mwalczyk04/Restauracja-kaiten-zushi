@@ -75,6 +75,14 @@ typedef struct {
 	int stoly[MAX_LICZBA_STOLIKOW];	// 0 = wolny  1 = zajety
 }Restauracja;
 
+//Wlasna funkcja error
+static inline int custom_error(int wynik, const char* msg) {
+	if (wynik == -1) {
+		perror(msg);
+		exit(EXIT_FAILURE);
+	}
+	return wynik;
+}
 
 static inline void sem_p(int sem_id, int sem_num) {
 	struct sembuf buf;
@@ -120,6 +128,7 @@ static inline void sem_zmiana(int sem_id, int sem_num, int delta) {
 		exit(1);
 	}
 }
+
 
 static void raportuj(const char* format, ...) {
 	va_list args;

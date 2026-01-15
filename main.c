@@ -113,13 +113,10 @@ void naped_tasmy() {
 
 
 void uruchom_proces(const char* sciezka, const char* nazwa) {
-	pid_t pid = fork();
+	pid_t pid = custom_error(fork(), "Blad fork");
 
 	if (pid == 0) {
-		execl(sciezka, nazwa, NULL);
-
-		perror("Blad execl");	//Wykona sie tylko jesli execl nie zadziala
-		exit(1);
+		custom_error(execl(sciezka, nazwa, NULL), "Blad execl");
 	}
 }
 
@@ -153,8 +150,10 @@ int main() {
 	shm_id = shmget(klucz_shm, SHM_SIZE, IPC_CREAT | 0600);
 	if (shm_id == -1) {
 		perror("Blad podlaczania segmentu pamieci dzielonej!");
+		sprzatanie();
 		exit(1);
 	}
+
 	adres_restauracji = (Restauracja*)shmat(shm_id, NULL, 0);
 	if (adres_restauracji == (void*)-1) {
 		perror("Blad przylaczenia (shmat)");

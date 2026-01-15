@@ -78,17 +78,9 @@ int main() {
 		exit(1);
 	}
 
-	int shm_id = shmget(klucz, SHM_SIZE, 0600);
-	if (shm_id == -1) {
-		perror("Blad podlaczania segmentu pamieci dzielonej!");
-		exit(1);
-	}
+	int shm_id = custom_error(shmget(klucz, SHM_SIZE, 0600), "Blad shmget | kucharz");
 
-	int sem_id = semget(klucz, 0, 0600);
-	if (sem_id == -1) {
-		perror("Blad semaforow");
-		exit(1);
-	}
+	int sem_id = custom_error(semget(klucz, 0, 0600), "Blad semget | kucharz");
 
 	Restauracja* adres = (Restauracja*)shmat(shm_id, NULL, 0);
 	if (adres == (void*)-1) {
@@ -137,11 +129,7 @@ int main() {
 			dla_kogo = 0;
 		}
 
-		//printf("Przygotowanie dania typu %d\n", typ_dania);
 		usleep(opoznienie_bazowe + (rand() % 50000)); //Losowy czas przygotowania potrawy
-
-		//sem_p(sem_id, SEM_WOLNE);	//Czekanie na miejsce
-		//sem_p(sem_id, SEM_BLOKADA);	//Blokowanie tasmy
 
 		int czy_polozono = 0;
 
