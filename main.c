@@ -210,10 +210,36 @@ int main() {
 		naped_tasmy();	//Uruchomienei tasmy w osobnym procesie
 	}
 
-	//Uruchamianie procesow
-	uruchom_proces("./kucharz", "kucharz");
-	printf("[Manager] Kucharz aktywowany\n");
+	//PIPE dla kucharza
+	int potok_kucharz[2];
+	custom_error(pipe(potok_kucharz), "Blad pipe");
 
+	pid_t pid_kucharz = custom_error(fork(), "Blad fork kucharz");
+
+	if (pid_kucharz == 0) {
+		close(potok_kucharz[1]);
+
+		custom_error(dup2(potok_kucharz[0], STDIN_FILENO), "Blad dup2");
+
+		close(potok_kucharz[0]);//Zamkniecie orginalu
+
+		execl("./kucharz", "kucharz", NULL);
+		perror("Blad execl");
+		exit(1);
+	}
+	else {
+		close(potok_kucharz[0]);
+
+		int seed = time(NULL);	//Generowanie losowego ziarna
+		write(potok_kucharz[1], &seed, sizeof(int));	//Wysylanie do kucharza
+
+		close(potok_kucharz[1]);
+
+		printf("[Manager] Kucharz aktywowany\n");
+	}
+
+
+	//Uruchamianie procesow
 	uruchom_proces("./obsluga", "obsluga");
 	printf("[Manager] Obsluga aktywna\n");
 

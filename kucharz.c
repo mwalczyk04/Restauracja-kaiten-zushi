@@ -70,7 +70,16 @@ int main() {
 	signal(SIGUSR2, obsluga_sygnalow);
 	signal(SIGTERM, obsluga_sygnalow);
 
-	srand(time(NULL) ^ getpid());
+	
+	int seed;
+	int n = read(STDIN_FILENO, &seed, sizeof(int));
+
+	if(n == sizeof(int)) {
+		srand(seed ^ getpid());
+	}
+	else {
+		srand(time(NULL) ^ getpid());
+	}
 
 	key_t klucz = ftok(".", ID_PROJEKT);
 	if (klucz == -1) {
