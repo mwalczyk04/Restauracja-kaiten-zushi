@@ -50,7 +50,12 @@ void* zachowanie_osoby(void* arg) {
 					adres->tablet[i].pid_klienta = pid_grupy;
 					adres->tablet[i].typ_dania = typ_zamowiony;
 					czy_specjal = 1;
-					printf("[%s %d] Zamawiam w tablecie danie %d\n", czy_vip ? "VIP" : "GRUPA", getpid(), typ_zamowiony);
+					if (czy_vip) {
+						printf(K_YELLOW"[VIP %d] Zamawiam w tablecie danie %d\n"K_RESET,getpid(), typ_zamowiony);
+					}
+					else {
+						printf(K_BLUE"[GRUPA %d] Zamawiam w tablecie danie %d\n"K_RESET, getpid(), typ_zamowiony);
+					}
 					break;
 				}
 			}
@@ -129,14 +134,29 @@ void* zachowanie_osoby(void* arg) {
 				zjedzone = 1;
 
 				if (wez_cokolwiek) {
-					printf("[%s %d] Nie bylo tego co chcialem (%d) , wzialem inne zamowienie standardowe %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy, typ_zamowiony, typ_zjedzony);
+					if (czy_vip) {
+						printf(K_YELLOW"[VIP %d] Nie bylo tego co chcialem (%d) , wzialem inne zamowienie standardowe %d\n"K_RESET, pid_grupy, typ_zamowiony, typ_zjedzony);
+					}
+					else {
+						printf(K_BLUE"[GRUPA %d] Nie bylo tego co chcialem (%d) , wzialem inne zamowienie standardowe %d\n"K_RESET, pid_grupy, typ_zamowiony, typ_zjedzony);
+					}
 				}
 				else {
 					if (czy_specjal) {
-						printf("[%s %d] Otrzymano zamowienie SPECJALNE %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy, typ_zjedzony);
+						if (czy_vip) {
+							printf(K_YELLOW"[VIP %d] Otrzymano zamowienie SPECJALNE %d\n"K_RESET,pid_grupy, typ_zjedzony);
+						}
+						else {
+							printf(K_BLUE"[GRUPA %d] Otrzymano zamowienie SPECJALNE %d\n"K_RESET, pid_grupy, typ_zjedzony);
+						}
 					}
 					else {
-						printf("[%s %d] Otrzymano zamowienie STANDARDOWE %d\n", czy_vip ? "VIP" : "GRUPA", pid_grupy, typ_zjedzony);
+						if (czy_vip) {
+							printf(K_YELLOW"[VIP %d] Otrzymano zamowienie STANDARDOWE %d\n"K_RESET, pid_grupy, typ_zjedzony);
+						}
+						else {
+							printf(K_BLUE"[GRUPA %d] Otrzymano zamowienie STANDARDOWE %d\n"K_RESET, pid_grupy, typ_zjedzony);
+						}
 					}
 				}
 			}
@@ -202,10 +222,10 @@ int main() {
 		int dzieci = liczba_osob - dorosli;
 
 	if (czy_vip) {
-		printf("[VIP %d] Przychodzi\n", getpid());
+		printf(K_YELLOW"[VIP %d] Przychodzi\n"K_RESET, getpid());
 	}
 	else {
-		printf("GRUPA o PID = %d przychodzi\n", getpid());
+		printf(K_BLUE"GRUPA o PID = %d przychodzi\n"K_RESET, getpid());
 	}
 	fflush(stdout);
 	sleep(rand() % 2);
@@ -244,10 +264,10 @@ int main() {
 			}
 
 			if (znaleziono) {
-				printf("[VIP %d] Zajmuje stolik %d os. Siada bez kolejki\n", getpid(), ilosc_do_zajecia);
+				printf(K_YELLOW"[VIP %d] Zajmuje stolik %d os. Siada bez kolejki\n"K_RESET, getpid(), ilosc_do_zajecia);
 			}
 			else {
-				printf("[VIP %d] Wszystko zajete, VIP musi czekac\n", getpid());
+				printf(K_YELLOW"[VIP %d] Wszystko zajete, VIP musi czekac\n"K_RESET, getpid());
 				if (liczba_osob == 1) { semafor_docelowy = SEM_STOL_1; ilosc_do_zajecia = 1; }
 				else if (liczba_osob == 2) { semafor_docelowy = SEM_STOL_2; ilosc_do_zajecia = 2; }
 				else if (liczba_osob == 3) { semafor_docelowy = SEM_STOL_3; ilosc_do_zajecia = 3; }
@@ -270,7 +290,7 @@ int main() {
 			if (czy_lada) {
 				semafor_docelowy = SEM_LADA;
 				ilosc_do_zajecia = liczba_osob;
-				printf("[GRUPA %d](%d os) Zajmuje miejsce przy ladzie\n", getpid(), liczba_osob);
+				printf(K_BLUE"[GRUPA %d](%d os) Zajmuje miejsce przy ladzie\n"K_RESET, getpid(), liczba_osob);
 			}
 			else {
 				switch (liczba_osob)
@@ -279,35 +299,35 @@ int main() {
 					if (rand() % 2 == 0) {
 						semafor_docelowy = SEM_STOL_1;
 						ilosc_do_zajecia = 1;
-						printf("[GRUPA %d](1 os) Stolik 1 os(Zajmuje caly)\n", getpid());
+						printf(K_BLUE"[GRUPA %d](1 os) Stolik 1 os(Zajmuje caly)\n"K_RESET, getpid());
 					}
 					else {
 						semafor_docelowy = SEM_STOL_2;
 						ilosc_do_zajecia = 1;
-						printf("[GRUPA %d](1 os) Stolik 2 os (Dosiada sie)\n", getpid());
+						printf(K_BLUE"[GRUPA %d](1 os) Stolik 2 os (Dosiada sie)\n"K_RESET, getpid());
 					}
 					break;
 				case 2:
 					if (rand() % 2 == 0) {
 						semafor_docelowy = SEM_STOL_2;
 						ilosc_do_zajecia = 2;
-						printf("[GRUPA %d](2 os) Stolik 2 os (Zajmuje caly)\n", getpid());
+						printf(K_BLUE"[GRUPA %d](2 os) Stolik 2 os (Zajmuje caly)\n"K_RESET, getpid());
 					}
 					else {
 						semafor_docelowy = SEM_STOL_4;
 						ilosc_do_zajecia = 2;
-						printf("[GRUPA %d](2 os) Stolik 4 os (Dosiada sie)\n", getpid());
+						printf(K_BLUE"[GRUPA %d](2 os) Stolik 4 os (Dosiada sie)\n"K_RESET, getpid());
 					}
 					break;
 				case 3:
 					semafor_docelowy = SEM_STOL_3;
 					ilosc_do_zajecia = 3;
-					printf("[GRUPA %d](3 os) Stolik 3 os (Zajmuje caly)\n", getpid());
+					printf(K_BLUE"[GRUPA %d](3 os) Stolik 3 os (Zajmuje caly)\n"K_RESET, getpid());
 					break;
 				default:
 					semafor_docelowy = SEM_STOL_4;
 					ilosc_do_zajecia = 4;
-					printf("[GRUPA %d](4 os) Stolik 4 os (Zajmuje caly)\n", getpid());
+					printf(K_BLUE"[GRUPA %d](4 os) Stolik 4 os (Zajmuje caly)\n"K_RESET, getpid());
 					break;
 				}
 
@@ -351,10 +371,15 @@ int main() {
 			if (moj_id_tablicy == -1)numer_stolika_globalny = 999;
 		}
 		if (semafor_docelowy != SEM_LADA) {
-			printf("[%s %d] Siada przy STOLIKU NR %d\n", czy_vip ? "VIP" : "GRUPA", getpid(), moj_id_tablicy);
+			if (czy_vip) {
+				printf(K_YELLOW"[VIP %d] Siada przy STOLIKU NR %d\n"K_RESET, getpid(), moj_id_tablicy);
+			}
+			else {
+				printf(K_BLUE"[GRUPA %d] Siada przy STOLIKU NR %d\n"K_RESET, getpid(), moj_id_tablicy);
+			}
 		}
 		else {
-			printf("[%s %d] Siada przy LADZIE\n", czy_vip ? "VIP" : "GRUPA", getpid());
+			printf(K_BLUE"[GRUPA %d] Siada przy LADZIE\n"K_RESET, getpid());
 		}
 		
 		sem_v(sem_id, SEM_BLOKADA);
@@ -390,7 +415,12 @@ int main() {
 				perror("Blad wyslania zaplaty");
 			}
 			else {
-				printf("[%s %d] Wyslano do kasy %d zl, Wychodzimy\n",czy_vip?"VIP":"GRUPA",getpid(), rachunek_grupy);
+				if (czy_vip) {
+					printf(K_YELLOW"[VIP %d] Wyslano do kasy %d zl, Wychodzimy\n"K_RESET,getpid(), rachunek_grupy);
+				}
+				else {
+					printf(K_BLUE"[GRUPA %d] Wyslano do kasy %d zl, Wychodzimy\n"K_RESET, getpid(), rachunek_grupy);
+				}
 			}
 		}
 

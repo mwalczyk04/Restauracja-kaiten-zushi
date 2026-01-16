@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#define MAX_LICZBA_KLIENTOW 40
+#define MAX_LICZBA_KLIENTOW 100
 #define SHM_SIZE sizeof(Restauracja)
 #define CZAS_OTWARCIA 30	//Czas mierzony w sekundach
 
@@ -19,7 +19,7 @@ void sprzatanie() {
 	signal(SIGTERM, SIG_IGN);
 
 	//printf("\nOtrzymano sygnal %d\n Zaczynam sprzatac\n", sig);
-	printf("[Manager] Zamykanie restauracji\n");
+	printf(K_RED"[Manager] Zamykanie restauracji\n"K_RESET);
 	
 	kill(0, SIGTERM);	//Sygnal KILL dla wszystkich procesow
 	sleep(1);
@@ -63,7 +63,7 @@ void sprzatanie() {
 			printf("Usunieto kolejke komunikatow\n");
 		}
 	}
-	printf("[Manager] Zamykanie zakonczone, zasoby zwolnione\n");
+	printf(K_RED"[Manager] Zamykanie zakonczone, zasoby zwolnione\n"K_RESET);
 
 	exit(0);
 
@@ -71,7 +71,7 @@ void sprzatanie() {
 
 void naped_tasmy() {
 	signal(SIGINT, SIG_IGN);
-	printf("[Manager] Tasma ruszyla (PID %d)\n", getpid());
+	printf(K_RED"[Manager] Tasma ruszyla (PID %d)\n"K_RESET, getpid());
 
 	struct sembuf operacja_budzenie;
 	operacja_budzenie.sem_num = SEM_ZMIANA;
@@ -137,7 +137,7 @@ void naped_tasmy() {
 			}
 		}
 	}
-	printf("[Manager] Tasma sie zatrzymala\n");
+	printf(K_RED"[Manager] Tasma sie zatrzymala\n"K_RESET);
 	exit(0);
 }
 
@@ -156,7 +156,7 @@ void uruchom_proces(const char* sciezka, const char* nazwa) {
 void obsluga_sygnalu_3(int sig) {
 	if (adres_restauracji != NULL) {
 		adres_restauracji->czy_ewakuacja = 1;
-		printf("\n[Manager] Otrzymano sygnal 3. Ewakuacja\n\n");
+		printf(K_RED"\n[Manager] Otrzymano sygnal 3. Ewakuacja\n\n"K_RESET);
 	}
 	sprzatanie();
 }
@@ -270,25 +270,32 @@ int main() {
 
 		close(potok_kucharz[1]);
 
-		printf("[Manager] Kucharz aktywowany\n");
+		printf(K_RED"[Manager] Kucharz aktywowany\n"K_RESET);
 	}
 
 
 	//Uruchamianie procesow
 	uruchom_proces("./obsluga", "obsluga");
-	printf("[Manager] Obsluga aktywna\n");
+	printf(K_RED"[Manager] Obsluga aktywna\n"K_RESET);
 
-	printf("Restauracja otwarta ID pamieci = %d, miejsce: LADA = %d , 1 OS = %d , 2 OS = %d , 3 OS = %d , 4 OS = %d\n", shm_id, ILOSC_MIEJSC_LADA, ILOSC_1_OS, ILOSC_2_OS, ILOSC_3_OS, ILOSC_4_OS);
+	printf(K_RED"Restauracja otwarta ID pamieci = %d, miejsce: LADA = %d , 1 OS = %d , 2 OS = %d , 3 OS = %d , 4 OS = %d\n"K_RESET, shm_id, ILOSC_MIEJSC_LADA, ILOSC_1_OS, ILOSC_2_OS, ILOSC_3_OS, ILOSC_4_OS);
 	
-	for (int t = 0;t < CZAS_OTWARCIA;t++) {
+	int wpuszczenie_klienci = 0;
 
-		if (rand() % 100 < 75) {	//75% ze klient sie pojawi	//Moze potem zmienic
-			uruchom_proces("./klient", "klient");
+	for (int t = 0;t < CZAS_OTWARCIA;t++) {
+		if (adres_restauracji->czy_ewakuacja) break;
+
+		if (wpuszczenie_klienci < MAX_LICZBA_KLIENTOW) {
+			if (rand() % 100 < 75) {	//75% ze klient sie pojawi	//Moze potem zmienic
+				uruchom_proces("./klient", "klient");
+				wpuszczenie_klienci++;
+			}
+			sleep(1);
+
 		}
-		sleep(1);
 		//printf("[Zegar] Do zamkniecia %d\n", CZAS_OTWARCIA - t);
 	}
-	printf("[Manager] Koniec czasu! Drzwi zamkniete\n");
+	printf(K_RED"[Manager] Koniec czasu! Drzwi zamkniete\n"K_RESET);
 	adres_restauracji->czy_otwarte = 0;
 
 	while (1) {
@@ -304,7 +311,7 @@ int main() {
 	}
 
 	//while (adres_restauracji->liczba_klientow > 0) {
-	//	printf("[Manager] Pozostalo %d grup w srodku\n", adres_restauracji->liczba_klientow);
+	//	printf(K_RED"[Manager] Pozostalo %d grup w srodku\n"K_RESET, adres_restauracji->liczba_klientow);
 	//	sleep(1);
 	//}
 	sleep(1);

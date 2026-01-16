@@ -44,22 +44,22 @@ void obsluga_sygnalow(int sig) {
 	else if (sig == SIGTERM) {
 
 		if (adres_globalny != NULL && adres_globalny->czy_ewakuacja == 1) {
-			printf("\n[Kucharz] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n");
+			printf(K_MAGENTA"\n[Kucharz] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n"K_RESET);
 		}
 		else {
-			printf("[Kucharz] Koniec zmiany\n");
+			printf(K_MAGENTA"[Kucharz] Koniec zmiany\n"K_RESET);
 		}
 
-		printf("=======================================\n");
-		printf("[Kucharz] RAPORT PRODUKCJI:\n");
+		printf(K_MAGENTA"=======================================\n"K_RESET);
+		printf(K_MAGENTA"[Kucharz] RAPORT PRODUKCJI:\n"K_RESET);
 		for (int i = 0;i <= 6;i++) {
 			if (wyprodukowane[i] > 0) {
-				printf("- Danie typ %d, %d sztuk, cena za sztuke %d zl\n", i, wyprodukowane[i], pobierz_cene(i));
+				printf(K_MAGENTA"- Danie typ %d, %d sztuk, cena za sztuke %d zl\n"K_RESET, i, wyprodukowane[i], pobierz_cene(i));
 			}
 			
 		}
-		printf(" LACZNA WARTOSC: %d zl\n", laczna_wartosc);
-		printf("=======================================\n");
+		printf(K_MAGENTA" LACZNA WARTOSC: %d zl\n"K_RESET, laczna_wartosc);
+		printf(K_MAGENTA"=======================================\n"K_RESET);
 		_exit(0);	//Natychamiastowe wyjscie
 	}
 }
@@ -99,7 +99,7 @@ int main() {
 	adres_globalny = adres;
 
 
-	printf("Kucharz zaczyna prace PID = %d\n", getpid());
+	printf(K_MAGENTA"Kucharz zaczyna prace PID = %d\n"K_RESET, getpid());
 
 	while (1) {
 		if (adres->czy_ewakuacja)break;
@@ -118,7 +118,7 @@ int main() {
 				adres->tablet[i].pid_klienta = 0;
 				adres->tablet[i].typ_dania = 0;
 
-				printf("[Kucharz] Przyjal zamowienie SPECJALNE (typ %d) dla %d\n", typ_do_ugotowania, dla_kogo);
+				printf(K_MAGENTA"[Kucharz] Przyjal zamowienie SPECJALNE (typ %d) dla %d\n"K_RESET, typ_do_ugotowania, dla_kogo);
 				break;
 			}
 		}
@@ -162,10 +162,10 @@ int main() {
 				//czy_polozono = 1;
 			
 				if (dla_kogo != 0) {
-					printf("[Kucharz] Danie SPECJALNE typy %d polozone na tasmie dla %d\n", typ_do_ugotowania, dla_kogo);
+					printf(K_MAGENTA"[Kucharz] Danie SPECJALNE typy %d polozone na tasmie dla %d\n"K_RESET, typ_do_ugotowania, dla_kogo);
 				}
 				else {
-					printf("[Kucharz] Danie standardowe typu %d polozone na tasmie\n", typ_do_ugotowania);
+					printf(K_MAGENTA"[Kucharz] Danie standardowe typu %d polozone na tasmie\n"K_RESET, typ_do_ugotowania);
 				}
 
 				sem_v(sem_id, SEM_BLOKADA);

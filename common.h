@@ -49,6 +49,15 @@
 
 #define PLIK_RAPORT "raport.txt"
 
+//Kolory do logow
+#define K_RED     "\x1B[31m"
+#define K_GREEN   "\x1B[32m"
+#define K_YELLOW  "\x1B[33m"
+#define K_BLUE    "\x1B[34m"
+#define K_MAGENTA "\x1B[35m"
+#define K_CYAN    "\x1B[36m"
+#define K_RESET   "\033[0m"
+
 
 typedef struct {
 	long mtype;	//Typ komunikatu

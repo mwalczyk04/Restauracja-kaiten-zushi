@@ -23,16 +23,16 @@ void ewakuacja(int sig) {
 	usleep(200000);
 	if (adres_globalny == NULL)_exit(0);
 	if (adres_globalny->czy_ewakuacja == 1) {
-		printf("\n[Obsluga] Otrzymalem sygnal SIGTERM.Ewakuacja\n\n");
+		printf(K_GREEN"\n[Obsluga] Otrzymalem sygnal SIGTERM.Ewakuacja\n\n"K_RESET);
 	}
 	else {
 		printf("[Obsluga] Koniec zmiany\n");
 	}
 
-	printf("=======================================\n");
-	printf("[Obsluga] RAPORT FINANSOWY:\n");
-	printf(" Utarg: %d zl\n", adres_globalny->utarg);
-	printf(" Zmarnowane jedzienie:\n");
+	printf(K_GREEN"=======================================\n"K_RESET);
+	printf(K_GREEN"[Obsluga] RAPORT FINANSOWY:\n"K_RESET);
+	printf(K_GREEN" Utarg: %d zl\n"K_RESET, adres_globalny->utarg);
+	printf(K_GREEN" Zmarnowane jedzienie:\n"K_RESET);
 	int strata = 0;
 	int znalezione = 0;
 
@@ -41,19 +41,19 @@ void ewakuacja(int sig) {
 
 		if (typ != 0) {
 			int cena = pobierz_cene(typ);
-			printf(" - Pozycja %2d: Danie typu %d o wartosci %d zl\n", i, typ, cena);
+			printf(K_GREEN" - Pozycja %2d: Danie typu %d o wartosci %d zl\n"K_RESET, i, typ, cena);
 			strata += cena;
 			znalezione = 1;
 		}
 
 	}
 	if (!znalezione) {
-		printf("Tasma pusta , brak strat\n");
+		printf(K_GREEN"Tasma pusta , brak strat\n"K_RESET);
 	}
 	else {
-		printf("LACZNA WARTOSC STRAT: %d zl\n", strata);
+		printf(K_GREEN"LACZNA WARTOSC STRAT: %d zl\n"K_RESET, strata);
 	}
-	printf("=======================================\n");
+	printf(K_GREEN"=======================================\n"K_RESET);
 
 	
 	_exit(0);	//Natychamiastowe wyjscie
@@ -81,7 +81,7 @@ int main() {
 	}
 	adres_globalny = adres;
 
-	printf("[Obsluga] Kasjer gotowy. Czekanie na platnosci\n");
+	printf(K_GREEN"[Obsluga] Kasjer gotowy. Czekanie na platnosci\n"K_RESET);
 
 	KomunikatZaplaty msg;
 
@@ -90,12 +90,12 @@ int main() {
 		int wynik = msgrcv(msg_id, &msg, sizeof(msg) - sizeof(long), 1, 0);
 		
 		if (wynik != -1) {
-			printf("[Obsluga] Klient %d placi rachunek: %d zl\n", msg.pid_klienta, msg.kwota);
+			printf(K_GREEN"[Obsluga] Klient %d placi rachunek: %d zl\n"K_RESET, msg.pid_klienta, msg.kwota);
 			adres->utarg += msg.kwota;
 		}
 		else {
 			if (errno == EIDRM || errno == EINVAL) {
-				printf("[Obsluga] Kolejka usunieta - zamykanie procesu\n");
+				printf(K_GREEN"[Obsluga] Kolejka usunieta - zamykanie procesu\n"K_RESET);
 				break;
 			}
 			else {
