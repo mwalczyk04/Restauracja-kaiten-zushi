@@ -15,6 +15,9 @@ Restauracja * adres_restauracji = NULL;
 
 void sprzatanie() {
 	
+	signal(SIGINT, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
+
 	//printf("\nOtrzymano sygnal %d\n Zaczynam sprzatac\n", sig);
 	printf("[Manager] Zamykanie restauracji\n");
 	
@@ -39,6 +42,7 @@ void sprzatanie() {
 		else {
 			printf("Usunieta pamiec dzielona\n");
 		}
+		shm_id = -1;	//Zabezpieczenie przed ponownym usunieciem
 	}
 
 	if (sem_id != -1) {
@@ -66,18 +70,32 @@ void sprzatanie() {
 }
 
 void naped_tasmy() {
+	signal(SIGINT, SIG_IGN);
 	printf("[Manager] Tasma ruszyla (PID %d)\n", getpid());
+
+	struct sembuf operacja_budzenie;
+	operacja_budzenie.sem_num = SEM_ZMIANA;
+	operacja_budzenie.sem_op = 1;
+	operacja_budzenie.sem_flg = 0;
+	
+	struct sembuf tasma_blokada;
+	tasma_blokada.sem_num = SEM_BLOKADA;
+	tasma_blokada.sem_op = -1;
+	tasma_blokada.sem_flg = 0;
+
+	struct sembuf tasma_odblokowana;
+	tasma_odblokowana.sem_num = SEM_BLOKADA;
+	tasma_odblokowana.sem_op = 1;
+	tasma_odblokowana.sem_flg = 0;
 
 	while (adres_restauracji->czy_otwarte == 1 || adres_restauracji->liczba_klientow > 0) {
 
 		if (adres_restauracji->czy_ewakuacja)break;
 
-		usleep(500000);
+		semctl(sem_id, SEM_ZMIANA, SETVAL, 0);
 
-		struct sembuf tasma_blokada;
-		tasma_blokada.sem_num = SEM_BLOKADA;
-		tasma_blokada.sem_op = -1;
-		tasma_blokada.sem_flg = 0;
+		//usleep(500000);
+
 		if (semop(sem_id, &tasma_blokada, 1) == -1) {
 			//Ignorowanie bladu usuniecia semafora 
 			if (errno == EIDRM || errno == EINVAL) {
@@ -94,10 +112,6 @@ void naped_tasmy() {
 		}
 		adres_restauracji->tasma[0] = ostatni;
 
-		struct sembuf tasma_odblokowana;
-		tasma_odblokowana.sem_num = SEM_BLOKADA;
-		tasma_odblokowana.sem_op = 1;
-		tasma_odblokowana.sem_flg = 0;
 		if (semop(sem_id, &tasma_odblokowana, 1) == -1) {
 			//Ignorowanie bladu usuniecia semafora 
 			if (errno == EIDRM || errno == EINVAL) {
@@ -105,6 +119,22 @@ void naped_tasmy() {
 			}
 			perror("Blad tasma semafor");
 			exit(1);
+		}
+		
+
+		int ile_obudzic = adres_restauracji->liczba_klientow;
+		if (ile_obudzic > 100)ile_obudzic = 100;	//Limit budzenia na cykl
+		if (ile_obudzic < 10)ile_obudzic = 10;		//Minimum zeby kucharz sie zalapal
+
+		for (int i = 0;i < ile_obudzic;i++) {
+			if (semop(sem_id, &operacja_budzenie, 1) == -1) {
+				//Ignorowanie bladu usuniecia semafora 
+				if (errno == EIDRM || errno == EINVAL) {
+					exit(0);
+				}
+				perror("Blad tasma semafor");
+				exit(1);
+			}
 		}
 	}
 	printf("[Manager] Tasma sie zatrzymala\n");
@@ -117,6 +147,9 @@ void uruchom_proces(const char* sciezka, const char* nazwa) {
 
 	if (pid == 0) {
 		custom_error(execl(sciezka, nazwa, NULL), "Blad execl");
+	}
+	else if (pid == -1) {
+		//Ignorowanie limitu procesow forka 
 	}
 }
 
@@ -161,7 +194,7 @@ int main() {
 		exit(1);
 	}
 
-	sem_id = semget(klucz_shm, 8, IPC_CREAT | 0600);
+	sem_id = semget(klucz_shm, 10, IPC_CREAT | 0600);
 	if (sem_id == -1) {
 		perror("Blad tworzenia semaforow");
 		sprzatanie();
@@ -179,6 +212,8 @@ int main() {
 	semctl(sem_id, SEM_BLOKADA, SETVAL, 1);
 	semctl(sem_id, SEM_WOLNE, SETVAL, MAX_TASMA);
 	semctl(sem_id, SEM_ZAJETE, SETVAL, 0);
+	semctl(sem_id, SEM_WYJSCIE, SETVAL, 0);
+	semctl(sem_id, SEM_ZMIANA, SETVAL, 0);
 
 	semctl(sem_id, SEM_LADA, SETVAL, ILOSC_MIEJSC_LADA);
 	semctl(sem_id, SEM_STOL_1, SETVAL, ILOSC_1_OS);
@@ -256,10 +291,22 @@ int main() {
 	printf("[Manager] Koniec czasu! Drzwi zamkniete\n");
 	adres_restauracji->czy_otwarte = 0;
 
-	while (adres_restauracji->liczba_klientow > 0) {
-		printf("[Manager] Pozostalo %d grup w srodku\n", adres_restauracji->liczba_klientow);
-		sleep(1);
+	while (1) {
+		
+		sem_p(sem_id, SEM_BLOKADA);
+		int ile_w_srodku = adres_restauracji->liczba_klientow;
+		sem_v(sem_id, SEM_BLOKADA);
+
+		if (ile_w_srodku <= 0) {
+			break;
+		}
+		sem_p(sem_id, SEM_WYJSCIE);
 	}
+
+	//while (adres_restauracji->liczba_klientow > 0) {
+	//	printf("[Manager] Pozostalo %d grup w srodku\n", adres_restauracji->liczba_klientow);
+	//	sleep(1);
+	//}
 	sleep(1);
 	sprzatanie();
 

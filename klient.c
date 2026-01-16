@@ -408,6 +408,7 @@ int main() {
 		adres->liczba_klientow--;
 		sem_v(sem_id, SEM_BLOKADA);
 
+		sem_v(sem_id, SEM_WYJSCIE);
 
 	return 0;
 }

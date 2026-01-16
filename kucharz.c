@@ -130,7 +130,8 @@ int main() {
 			int wolne_miejsce = semctl(sem_id, SEM_WOLNE, GETVAL);	//Pobieramy wartosc semafora 
 
 			if (wolne_miejsce < 3) {
-				usleep(200000);
+				//usleep(200000);
+				sem_p(sem_id, SEM_ZMIANA);
 				continue;	//Czeka chwile i wraca na poczatek petli while
 			}
 
@@ -140,11 +141,12 @@ int main() {
 
 		usleep(opoznienie_bazowe + (rand() % 50000)); //Losowy czas przygotowania potrawy
 
-		int czy_polozono = 0;
+		//int czy_polozono = 0;
 
-		while (!czy_polozono) {
+		while (1) {
 			if (adres->czy_ewakuacja)break;
 
+			sem_p(sem_id, SEM_WOLNE);
 			sem_p(sem_id, SEM_BLOKADA);
 
 			if (adres->tasma[0].rodzaj == 0) {
@@ -155,9 +157,9 @@ int main() {
 				wyprodukowane[typ_do_ugotowania]++;
 				laczna_wartosc += pobierz_cene(typ_do_ugotowania);
 
-				sem_p(sem_id, SEM_WOLNE);
+				//sem_p(sem_id, SEM_WOLNE);
 
-				czy_polozono = 1;
+				//czy_polozono = 1;
 			
 				if (dla_kogo != 0) {
 					printf("[Kucharz] Danie SPECJALNE typy %d polozone na tasmie dla %d\n", typ_do_ugotowania, dla_kogo);
@@ -165,13 +167,20 @@ int main() {
 				else {
 					printf("[Kucharz] Danie standardowe typu %d polozone na tasmie\n", typ_do_ugotowania);
 				}
-			}
-			sem_v(sem_id, SEM_BLOKADA);
 
-			if (!czy_polozono) {
-				//Jesli nie udalo sie polozyc to czeka
-				usleep(50000);
+				sem_v(sem_id, SEM_BLOKADA);
+				break;
 			}
+			else {
+				sem_v(sem_id, SEM_BLOKADA);
+				sem_v(sem_id, SEM_WOLNE);
+				usleep(50000);
+
+				sem_p(sem_id, SEM_ZMIANA);
+			}
+			//if (!czy_polozono) {
+			//	//Jesli nie udalo sie polozyc to czeka
+			//}
 		}
 	}
 

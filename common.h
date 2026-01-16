@@ -26,6 +26,9 @@
 #define SEM_STOL_3 6
 #define SEM_STOL_4 7
 
+#define SEM_WYJSCIE 8	//Menager czeka az ktos wyjdzie
+#define SEM_ZMIANA 9	//Czekanie na przesuniecie tasmy
+
 // Mozliwosci stolikow
 #define ILOSC_1_OS 4
 #define ILOSC_2_OS 4
