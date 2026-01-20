@@ -102,7 +102,7 @@ void* zachowanie_osoby(void* arg) {
 			if (czy_specjal && rezerwacja == pid_grupy && typ_zjedzony == typ_zamowiony) moje_zamowienie = 1;
 			if (!czy_specjal && rezerwacja == 0 && typ_zjedzony == typ_zamowiony) moje_zamowienie = 1;
 
-			cierpliwosc++;
+			
 			int wez_cokolwiek = 0;
 
 			//Jesli czeka kilka sekund bierze cokolwiek
@@ -133,6 +133,8 @@ void* zachowanie_osoby(void* arg) {
 				adres->tasma[moj_id_tasmy].rodzaj = 0;
 				adres->tasma[moj_id_tasmy].rezerwacja_dla = 0;
 				zjedzone = 1;
+				
+				sem_v(sem_id, SEM_WOLNE);
 
 				if (wez_cokolwiek) {
 					if (czy_vip) {
@@ -168,6 +170,8 @@ void* zachowanie_osoby(void* arg) {
 			}
 			else {
 				usleep(50000);
+				sem_p(sem_id, SEM_ZMIANA);
+				cierpliwosc++;
 			}
 
 		}

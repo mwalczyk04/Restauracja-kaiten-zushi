@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <time.h>
 
 #define MAX_LICZBA_KLIENTOW 100		// Ilosc wygenerowanych razem klientow
 #define MAX_AKTYWNYCH_KLIENTOW 200	// Ilosc osob w lokalu
@@ -286,7 +287,10 @@ int main() {
 	int wpuszczenie_klienci = 0;
 	int aktywni_klienci = 0;
 
-	for (int t = 0;t < CZAS_OTWARCIA;t++) {
+	time_t czas_start = time(NULL);
+	time_t czas_koniec = czas_start + CZAS_OTWARCIA;
+
+	while (time(NULL) < czas_koniec) {
 		if (adres_restauracji->czy_ewakuacja) break;
 
 		sem_p(sem_id, SEM_BLOKADA);
