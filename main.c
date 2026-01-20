@@ -2,8 +2,10 @@
 #include <signal.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/wait.h>
 
-#define MAX_LICZBA_KLIENTOW 100
+#define MAX_LICZBA_KLIENTOW 100		// Ilosc wygenerowanych razem klientow
+#define MAX_AKTYWNYCH_KLIENTOW 200	// Ilosc osob w lokalu
 #define SHM_SIZE sizeof(Restauracja)
 #define CZAS_OTWARCIA 30	//Czas mierzony w sekundach
 
@@ -18,12 +20,10 @@ void sprzatanie() {
 	signal(SIGINT, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 
-	//printf("\nOtrzymano sygnal %d\n Zaczynam sprzatac\n", sig);
 	printf(K_RED"[Manager] Zamykanie restauracji\n"K_RESET);
 	
 	kill(0, SIGTERM);	//Sygnal KILL dla wszystkich procesow
-	sleep(1);
-
+	while (wait(NULL) > 0);
 	
 
 	if (adres_restauracji != NULL) {
@@ -142,15 +142,17 @@ void naped_tasmy() {
 }
 
 
-void uruchom_proces(const char* sciezka, const char* nazwa) {
+int uruchom_proces(const char* sciezka, const char* nazwa) {
 	pid_t pid = custom_error(fork(), "Blad fork");
 
 	if (pid == 0) {
 		custom_error(execl(sciezka, nazwa, NULL), "Blad execl");
 	}
 	else if (pid == -1) {
-		//Ignorowanie limitu procesow forka 
+		fprintf(stderr, K_RED"[Manager] OSTRZEZENIE!!! System przciazony (fork == -1)\n"K_RESET);
+		return -1;
 	}
+	return pid;
 }
 
 void obsluga_sygnalu_3(int sig) {
@@ -162,9 +164,9 @@ void obsluga_sygnalu_3(int sig) {
 }
 
 int main() {
+	signal(SIGCHLD, SIG_IGN);	//Sprzatanie zombie
 	signal(SIGTERM, SIG_IGN);	//Blokada zeby kill nie zabil Managera
 	signal(SIGINT, obsluga_sygnalu_3);// ctrl+c == sygnal 3 ewakuacja
-	signal(SIGCHLD, SIG_IGN);
 
 	FILE* fp = fopen("raport.txt", "w");	//Czyszczenie pliku na start
 	if (fp) {
@@ -282,22 +284,30 @@ int main() {
 	printf(K_RED"Restauracja otwarta ID pamieci = %d, miejsce: LADA = %d , 1 OS = %d , 2 OS = %d , 3 OS = %d , 4 OS = %d\n"K_RESET, shm_id, ILOSC_MIEJSC_LADA, ILOSC_1_OS, ILOSC_2_OS, ILOSC_3_OS, ILOSC_4_OS);
 	
 	int wpuszczenie_klienci = 0;
+	int aktywni_klienci = 0;
 
 	for (int t = 0;t < CZAS_OTWARCIA;t++) {
 		if (adres_restauracji->czy_ewakuacja) break;
 
-		if (wpuszczenie_klienci < MAX_LICZBA_KLIENTOW) {
+		sem_p(sem_id, SEM_BLOKADA);
+		aktywni_klienci = adres_restauracji->liczba_klientow;
+		sem_v(sem_id, SEM_BLOKADA);
+
+		if (wpuszczenie_klienci < MAX_LICZBA_KLIENTOW && aktywni_klienci<MAX_AKTYWNYCH_KLIENTOW) {
 			if (rand() % 100 < 75) {	//75% ze klient sie pojawi	//Moze potem zmienic
-				uruchom_proces("./klient", "klient");
-				wpuszczenie_klienci++;
+				int pid_nowego = uruchom_proces("./klient", "klient");
+				if (pid_nowego != -1) {
+					wpuszczenie_klienci++;
+				}
 			}
 			sleep(1);
 
 		}
-		//printf("[Zegar] Do zamkniecia %d\n", CZAS_OTWARCIA - t);
 	}
 	printf(K_RED"[Manager] Koniec czasu! Drzwi zamkniete\n"K_RESET);
+	sem_p(sem_id, SEM_BLOKADA);
 	adres_restauracji->czy_otwarte = 0;
+	sem_v(sem_id, SEM_BLOKADA);
 
 	while (1) {
 		
@@ -311,10 +321,6 @@ int main() {
 		sem_p(sem_id, SEM_WYJSCIE);
 	}
 
-	//while (adres_restauracji->liczba_klientow > 0) {
-	//	printf(K_RED"[Manager] Pozostalo %d grup w srodku\n"K_RESET, adres_restauracji->liczba_klientow);
-	//	sleep(1);
-	//}
 	sleep(1);
 	sprzatanie();
 

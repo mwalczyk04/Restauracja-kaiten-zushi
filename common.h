@@ -58,6 +58,12 @@
 #define K_CYAN    "\x1B[36m"
 #define K_RESET   "\033[0m"
 
+//#define TRYB_BEZ_SLEEP 
+
+#ifdef TRYB_BEZ_SLEEP
+#define sleep(x) ((void)0)
+#define usleep(x) ((void)0)
+#endif
 
 typedef struct {
 	long mtype;	//Typ komunikatu
@@ -101,7 +107,8 @@ static inline void sem_p(int sem_id, int sem_num) {
 	buf.sem_num = sem_num;
 	buf.sem_op = -1;
 	buf.sem_flg = 0;
-	if (semop(sem_id, &buf, 1) == -1) {
+	while (semop(sem_id, &buf, 1) == -1) {
+		if (errno == EINTR) continue;
 		//Ignorowanie bladu usuniecia semafora 
 		if (errno == EIDRM || errno == EINVAL) {
 			exit(0);
@@ -117,26 +124,29 @@ static inline void sem_v(int sem_id, int sem_num) {
 	buf.sem_num = sem_num;
 	buf.sem_op = 1;
 	buf.sem_flg = 0;
-	if (semop(sem_id, &buf, 1) == -1) {
+	while (semop(sem_id, &buf, 1) == -1) {
+		if (errno == EINTR) continue;
 		if (errno == EIDRM || errno == EINVAL) {
 			exit(0);
 		}
-		perror("Blad sem_v");
+		perror("Blad sem_p");
 		exit(1);
 	}
-	
 }
+	
+
 
 static inline void sem_zmiana(int sem_id, int sem_num, int delta) {
 	struct sembuf buf;
 	buf.sem_num = sem_num;
 	buf.sem_op = delta;
 	buf.sem_flg = 0;
-	if (semop(sem_id, &buf, 1) == -1) {
+	while (semop(sem_id, &buf, 1) == -1) {
+		if (errno == EINTR) continue;
 		if (errno == EIDRM || errno == EINVAL) {
 			exit(0);
 		}
-		perror("Blad sem_zmiana");
+		perror("Blad sem_p");
 		exit(1);
 	}
 }

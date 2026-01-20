@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <pthread.h>
+#include <signal.h>
 
 #define SHM_SIZE sizeof(Restauracja)
 
@@ -178,6 +179,8 @@ void* zachowanie_osoby(void* arg) {
 }
 
 int main() {
+	signal(SIGTERM, SIG_DFL);
+
 	srand(time(NULL) ^ getpid());
 	pid_grupy = getpid();
 
@@ -207,9 +210,9 @@ int main() {
 	}
 
 	sem_p(sem_id, SEM_BLOKADA);
-
+	//Jesli zamkniete to nie wchodzi
 	if (adres->czy_otwarte == 0) {
-		sem_v(sem_id, SEM_BLOKADA);	//Jesli zamkniete to odchodzi
+		sem_v(sem_id, SEM_BLOKADA);
 		return 0;
 	}
 
@@ -400,7 +403,6 @@ int main() {
 
 			pthread_create(&watki[i], NULL, zachowanie_osoby, (void*)x);
 		}
-		
 		for (int i = 0;i < liczba_osob;i++) {
 			pthread_join(watki[i], NULL);
 		}
