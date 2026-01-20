@@ -164,6 +164,7 @@ void obsluga_sygnalu_3(int sig) {
 int main() {
 	signal(SIGTERM, SIG_IGN);	//Blokada zeby kill nie zabil Managera
 	signal(SIGINT, obsluga_sygnalu_3);// ctrl+c == sygnal 3 ewakuacja
+	signal(SIGCHLD, SIG_IGN);
 
 	FILE* fp = fopen("raport.txt", "w");	//Czyszczenie pliku na start
 	if (fp) {
