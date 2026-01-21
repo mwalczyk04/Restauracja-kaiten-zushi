@@ -21,8 +21,10 @@ void sprzatanie() {
 	signal(SIGINT, SIG_IGN);
 	signal(SIGTERM, SIG_IGN);
 
+	if (sem_id != -1) sem_p(sem_id, SEM_BLOKADA);
 	printf(K_RED"[Manager] Zamykanie restauracji\n"K_RESET);
-	
+	if (sem_id != -1) sem_v(sem_id, SEM_BLOKADA);
+
 	kill(0, SIGTERM);	//Sygnal KILL dla wszystkich procesow
 	while (wait(NULL) > 0);
 	

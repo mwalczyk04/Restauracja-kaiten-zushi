@@ -5,6 +5,7 @@
 
 #define SHM_SIZE sizeof(Restauracja)
 
+int sem_id = -1;
 //volatile aby kompilator wiedzial ze zmienna zmienia sie nagle 
 volatile int opoznienie_bazowe = 200000;
 
@@ -42,6 +43,7 @@ void obsluga_sygnalow(int sig) {
 		write(1, msg, sizeof(msg) - 1);
 	}
 	else if (sig == SIGTERM) {
+		sem_p(sem_id, SEM_BLOKADA);
 
 		if (adres_globalny != NULL && adres_globalny->czy_ewakuacja == 1) {
 			printf(K_MAGENTA"\n[Kucharz] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n"K_RESET);
@@ -60,6 +62,7 @@ void obsluga_sygnalow(int sig) {
 		}
 		printf(K_MAGENTA" LACZNA WARTOSC: %d zl\n"K_RESET, laczna_wartosc);
 		printf(K_MAGENTA"=======================================\n"K_RESET);
+		sem_v(sem_id, SEM_BLOKADA);
 		_exit(0);	//Natychamiastowe wyjscie
 	}
 }
@@ -89,7 +92,7 @@ int main() {
 
 	int shm_id = custom_error(shmget(klucz, SHM_SIZE, 0600), "Blad shmget | kucharz");
 
-	int sem_id = custom_error(semget(klucz, 0, 0600), "Blad semget | kucharz");
+	sem_id = custom_error(semget(klucz, 0, 0600), "Blad semget | kucharz");
 
 	Restauracja* adres = (Restauracja*)shmat(shm_id, NULL, 0);
 	if (adres == (void*)-1) {
