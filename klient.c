@@ -182,6 +182,14 @@ void* zachowanie_osoby(void* arg) {
 	return NULL;
 }
 
+int podaj_bramke(int sem_stol) {
+	if (sem_stol == SEM_STOL_1) return SEM_BRAMKA_1;
+	if (sem_stol == SEM_STOL_2) return SEM_BRAMKA_2;
+	if (sem_stol == SEM_STOL_3) return SEM_BRAMKA_3;
+	if (sem_stol == SEM_STOL_4) return SEM_BRAMKA_4;
+	return -1;
+}
+
 int main() {
 	signal(SIGTERM, SIG_DFL);
 
@@ -229,16 +237,17 @@ int main() {
 		int dzieci = liczba_osob - dorosli;
 
 	if (czy_vip) {
-		printf(K_YELLOW"[VIP %d] Przychodzi\n"K_RESET, getpid());
+		printf(K_YELLOW"[VIP %d](%d os) Przychodzi\n"K_RESET, getpid(),liczba_osob);
 	}
 	else {
-		printf(K_BLUE"GRUPA o PID = %d przychodzi\n"K_RESET, getpid());
+		printf(K_BLUE"GRUPA o PID = %d (%d os) przychodzi\n"K_RESET, getpid(),liczba_osob);
 	}
 	fflush(stdout);
 	sleep(rand() % 2);
 
 		int semafor_docelowy = -1;
 		int ilosc_do_zajecia = 0;
+		int bramka = -1;
 
 		if (czy_vip) {
 
@@ -280,6 +289,15 @@ int main() {
 				else if (liczba_osob == 3) { semafor_docelowy = SEM_STOL_3; ilosc_do_zajecia = 3; }
 				else { semafor_docelowy = SEM_STOL_4; ilosc_do_zajecia = 4; }
 			}
+			
+			bramka = podaj_bramke(semafor_docelowy);
+			//Wejscie jako VIP
+			//Zamkniecie bramki dla zwyklych ludzi
+			sem_p(sem_id, bramka);	
+			//Wejscie Vipa bez kolejki
+			sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
+			//Otwarcie dla zwyklych
+			sem_v(sem_id, bramka);
 
 
 		}
@@ -306,41 +324,53 @@ int main() {
 					if (rand() % 2 == 0) {
 						semafor_docelowy = SEM_STOL_1;
 						ilosc_do_zajecia = 1;
-						printf(K_BLUE"[GRUPA %d](1 os) Stolik 1 os(Zajmuje caly)\n"K_RESET, getpid());
+						//printf(K_BLUE"[GRUPA %d](1 os) Stolik 1 os(Zajmuje caly)\n"K_RESET, getpid());
+						printf(K_BLUE"[GRUPA %d](1 os) Czeka na stolik 1 os(Zajmuje caly)\n"K_RESET, getpid());
 					}
 					else {
 						semafor_docelowy = SEM_STOL_2;
 						ilosc_do_zajecia = 1;
-						printf(K_BLUE"[GRUPA %d](1 os) Stolik 2 os (Dosiada sie)\n"K_RESET, getpid());
+						//printf(K_BLUE"[GRUPA %d](1 os) Stolik 2 os (Dosiada sie)\n"K_RESET, getpid());
+						printf(K_BLUE"[GRUPA %d](1 os) Czeka na stolik 2 os(Dosiada sie)\n"K_RESET, getpid());
 					}
 					break;
 				case 2:
 					if (rand() % 2 == 0) {
 						semafor_docelowy = SEM_STOL_2;
 						ilosc_do_zajecia = 2;
-						printf(K_BLUE"[GRUPA %d](2 os) Stolik 2 os (Zajmuje caly)\n"K_RESET, getpid());
+						//printf(K_BLUE"[GRUPA %d](2 os) Stolik 2 os (Zajmuje caly)\n"K_RESET, getpid());
+						printf(K_BLUE"[GRUPA %d](2 os) Czeka na stolik 2 os(Zajmuje caly)\n"K_RESET, getpid());
 					}
 					else {
 						semafor_docelowy = SEM_STOL_4;
 						ilosc_do_zajecia = 2;
-						printf(K_BLUE"[GRUPA %d](2 os) Stolik 4 os (Dosiada sie)\n"K_RESET, getpid());
+						//printf(K_BLUE"[GRUPA %d](2 os) Stolik 4 os (Dosiada sie)\n"K_RESET, getpid());
+						printf(K_BLUE"[GRUPA %d](2 os) Czeka na stolik 4 os(Dosiada sie)\n"K_RESET, getpid());
 					}
 					break;
 				case 3:
 					semafor_docelowy = SEM_STOL_3;
 					ilosc_do_zajecia = 3;
-					printf(K_BLUE"[GRUPA %d](3 os) Stolik 3 os (Zajmuje caly)\n"K_RESET, getpid());
+					//printf(K_BLUE"[GRUPA %d](3 os) Stolik 3 os (Zajmuje caly)\n"K_RESET, getpid());
+					printf(K_BLUE"[GRUPA %d](3 os) Czeka na stolik 3 os(Zajmuje caly)\n"K_RESET, getpid());
 					break;
 				default:
 					semafor_docelowy = SEM_STOL_4;
 					ilosc_do_zajecia = 4;
-					printf(K_BLUE"[GRUPA %d](4 os) Stolik 4 os (Zajmuje caly)\n"K_RESET, getpid());
+					//printf(K_BLUE"[GRUPA %d](4 os) Stolik 4 os (Zajmuje caly)\n"K_RESET, getpid());
+					printf(K_BLUE"[GRUPA %d](4 os) Czeka na stolik 4 os(Zajmuje caly)\n"K_RESET, getpid());
 					break;
 				}
-
 			}
+			if (semafor_docelowy != SEM_LADA) {
+				bramka = podaj_bramke(semafor_docelowy);
+				//Sprawdzenie czy VIP w kolejce
+				sem_p(sem_id, bramka);
+				sem_v(sem_id, bramka);
+			}
+			sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);	//Wejscie do kolejki
 		}
-		sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);	//Zajecie miejsca
+		
 
 		int moj_id_tablicy = -1;
 		numer_stolika_globalny = 0;
@@ -374,15 +404,21 @@ int main() {
 					break;
 				}
 			}
+			//Zabezpieczenie
+			if (moj_id_tablicy == -1) {
+				numer_stolika_globalny = start + 1;
+				moj_id_tablicy = start;
+			}
+
 			//Zabezpieczenie przed naruszeniem pamieci
-			if (moj_id_tablicy == -1)numer_stolika_globalny = 999;
+			//if (moj_id_tablicy == -1)numer_stolika_globalny = 999;
 		}
 		if (semafor_docelowy != SEM_LADA) {
 			if (czy_vip) {
-				printf(K_YELLOW"[VIP %d] Siada przy STOLIKU NR %d\n"K_RESET, getpid(), moj_id_tablicy);
+				printf(K_YELLOW"[VIP %d](%d os) Siada przy STOLIKU NR %d\n"K_RESET, getpid(),liczba_osob ,moj_id_tablicy);
 			}
 			else {
-				printf(K_BLUE"[GRUPA %d] Siada przy STOLIKU NR %d\n"K_RESET, getpid(), moj_id_tablicy);
+				printf(K_BLUE"[GRUPA %d](%d os) Siada przy STOLIKU NR %d\n"K_RESET, getpid(),liczba_osob, moj_id_tablicy);
 			}
 		}
 		else {

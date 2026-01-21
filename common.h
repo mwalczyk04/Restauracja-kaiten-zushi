@@ -29,6 +29,12 @@
 #define SEM_WYJSCIE 8	//Menager czeka az ktos wyjdzie
 #define SEM_ZMIANA 9	//Czekanie na przesuniecie tasmy
 
+//Semafory bramek priorytetowych
+#define SEM_BRAMKA_1 10
+#define SEM_BRAMKA_2 11
+#define SEM_BRAMKA_3 12
+#define SEM_BRAMKA_4 13
+
 // Mozliwosci stolikow
 #define ILOSC_1_OS 4
 #define ILOSC_2_OS 4

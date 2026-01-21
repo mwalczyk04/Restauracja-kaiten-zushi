@@ -99,6 +99,7 @@ void naped_tasmy() {
 
 		if (semop(sem_id, &tasma_blokada, 1) == -1) {
 			//Ignorowanie bladu usuniecia semafora 
+			if (errno == EINTR) continue;
 			if (errno == EIDRM || errno == EINVAL) {
 				exit(0);
 			}
@@ -115,6 +116,7 @@ void naped_tasmy() {
 
 		if (semop(sem_id, &tasma_odblokowana, 1) == -1) {
 			//Ignorowanie bladu usuniecia semafora 
+			if (errno == EINTR) continue;
 			if (errno == EIDRM || errno == EINVAL) {
 				exit(0);
 			}
@@ -123,13 +125,14 @@ void naped_tasmy() {
 		}
 		
 
-		int ile_obudzic = adres_restauracji->liczba_klientow;
-		if (ile_obudzic > 100)ile_obudzic = 100;	//Limit budzenia na cykl
+		int ile_obudzic = adres_restauracji->liczba_klientow + 5;
+		if (ile_obudzic > 500)ile_obudzic = 500;	//Limit budzenia na cykl
 		if (ile_obudzic < 10)ile_obudzic = 10;		//Minimum zeby kucharz sie zalapal
 
 		for (int i = 0;i < ile_obudzic;i++) {
 			if (semop(sem_id, &operacja_budzenie, 1) == -1) {
 				//Ignorowanie bladu usuniecia semafora 
+				if (errno == EINTR) continue;
 				if (errno == EIDRM || errno == EINVAL) {
 					exit(0);
 				}
@@ -198,7 +201,7 @@ int main() {
 		exit(1);
 	}
 
-	sem_id = semget(klucz_shm, 10, IPC_CREAT | 0600);
+	sem_id = semget(klucz_shm, 14, IPC_CREAT | 0600);
 	if (sem_id == -1) {
 		perror("Blad tworzenia semaforow");
 		sprzatanie();
@@ -224,6 +227,11 @@ int main() {
 	semctl(sem_id, SEM_STOL_2, SETVAL, ILOSC_2_OS * 2);
 	semctl(sem_id, SEM_STOL_3, SETVAL, ILOSC_3_OS * 3);
 	semctl(sem_id, SEM_STOL_4, SETVAL, ILOSC_4_OS * 4);
+
+	semctl(sem_id, SEM_BRAMKA_1, SETVAL, 1);
+	semctl(sem_id, SEM_BRAMKA_2, SETVAL, 1);
+	semctl(sem_id, SEM_BRAMKA_3, SETVAL, 1);
+	semctl(sem_id, SEM_BRAMKA_4, SETVAL, 1);
 
 	//Inicjalizacja pamieci
 	adres_restauracji->czy_ewakuacja = 0;
