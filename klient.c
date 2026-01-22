@@ -133,8 +133,6 @@ void* zachowanie_osoby(void* arg) {
 				adres->tasma[moj_id_tasmy].rodzaj = 0;
 				adres->tasma[moj_id_tasmy].rezerwacja_dla = 0;
 				zjedzone = 1;
-				
-				sem_v(sem_id, SEM_WOLNE);
 
 				if (wez_cokolwiek) {
 					if (czy_vip) {
@@ -169,13 +167,13 @@ void* zachowanie_osoby(void* arg) {
 				sem_v(sem_id, SEM_WOLNE);
 			}
 			else {
-				usleep(50000);
+				//usleep(50000);
 				sem_p(sem_id, SEM_ZMIANA);
 				cierpliwosc++;
 			}
 
 		}
-		usleep(1000000 + (rand() % 500000));
+		//usleep(1000000 + (rand() % 500000));
 
 	}
 	free(dane_osoby);
@@ -191,6 +189,7 @@ int podaj_bramke(int sem_stol) {
 }
 
 int main() {
+	signal(SIGINT, SIG_IGN);
 	signal(SIGTERM, SIG_DFL);
 
 	srand(time(NULL) ^ getpid());
@@ -253,10 +252,12 @@ int main() {
 
 			int znaleziono = 0;
 
+			sem_p(sem_id, SEM_BLOKADA);
 			int wolne_4 = semctl(sem_id, SEM_STOL_4, GETVAL);
 			int wolne_3 = semctl(sem_id, SEM_STOL_3, GETVAL);
 			int wolne_2 = semctl(sem_id, SEM_STOL_2, GETVAL);
 			int wolne_1 = semctl(sem_id, SEM_STOL_1, GETVAL);
+			sem_v(sem_id, SEM_BLOKADA);
 
 			//Najpierw szukamy pasujacego albo wiekszego stolika zeby VIP nie czekal
 			
@@ -281,6 +282,11 @@ int main() {
 
 			if (znaleziono) {
 				printf(K_YELLOW"[VIP %d] Zajmuje stolik %d os. Siada bez kolejki\n"K_RESET, getpid(), ilosc_do_zajecia);
+
+				bramka = podaj_bramke(semafor_docelowy);
+				sem_p(sem_id, bramka);
+				sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
+				sem_v(sem_id, bramka);
 			}
 			else {
 				printf(K_YELLOW"[VIP %d] Wszystko zajete, VIP musi czekac\n"K_RESET, getpid());
@@ -288,16 +294,14 @@ int main() {
 				else if (liczba_osob == 2) { semafor_docelowy = SEM_STOL_2; ilosc_do_zajecia = 2; }
 				else if (liczba_osob == 3) { semafor_docelowy = SEM_STOL_3; ilosc_do_zajecia = 3; }
 				else { semafor_docelowy = SEM_STOL_4; ilosc_do_zajecia = 4; }
+
+				bramka = podaj_bramke(semafor_docelowy);
+				sem_p(sem_id, bramka);
+				sem_v(sem_id, bramka);
+				sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
 			}
 			
-			bramka = podaj_bramke(semafor_docelowy);
-			//Wejscie jako VIP
-			//Zamkniecie bramki dla zwyklych ludzi
-			sem_p(sem_id, bramka);	
-			//Wejscie Vipa bez kolejki
-			sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
-			//Otwarcie dla zwyklych
-			sem_v(sem_id, bramka);
+			
 
 
 		}

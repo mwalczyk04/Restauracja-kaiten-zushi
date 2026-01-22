@@ -43,7 +43,8 @@ void obsluga_sygnalow(int sig) {
 		write(1, msg, sizeof(msg) - 1);
 	}
 	else if (sig == SIGTERM) {
-		sem_p(sem_id, SEM_BLOKADA);
+
+		if(sem_id!=-1) sem_p(sem_id, SEM_BLOKADA);
 
 		if (adres_globalny != NULL && adres_globalny->czy_ewakuacja == 1) {
 			printf(K_MAGENTA"\n[Kucharz] Otrzymalem sygnal SIGTERM. Ewakuacja\n\n"K_RESET);
@@ -62,7 +63,7 @@ void obsluga_sygnalow(int sig) {
 		}
 		printf(K_MAGENTA" LACZNA WARTOSC: %d zl\n"K_RESET, laczna_wartosc);
 		printf(K_MAGENTA"=======================================\n"K_RESET);
-		sem_v(sem_id, SEM_BLOKADA);
+		if (sem_id != -1) sem_v(sem_id, SEM_BLOKADA);
 		_exit(0);	//Natychamiastowe wyjscie
 	}
 }

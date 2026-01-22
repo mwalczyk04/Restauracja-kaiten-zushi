@@ -135,7 +135,7 @@ static inline void sem_v(int sem_id, int sem_num) {
 		if (errno == EIDRM || errno == EINVAL) {
 			exit(0);
 		}
-		perror("Blad sem_p");
+		perror("Blad sem_v");
 		exit(1);
 	}
 }
@@ -152,9 +152,18 @@ static inline void sem_zmiana(int sem_id, int sem_num, int delta) {
 		if (errno == EIDRM || errno == EINVAL) {
 			exit(0);
 		}
-		perror("Blad sem_p");
+		perror("Blad sem_zmiana");
 		exit(1);
 	}
+}
+
+static inline int bezpieczne_msgrcv(int msqid, void* msgp, size_t msgsz, long msgtyp, int msgflg) {
+	int wyn;
+	while ((wyn = msgrcv(msqid, msgp, msgsz, msgtyp, msgflg)) == -1) {
+		if (errno == EINTR) continue;
+		return -1;
+	}
+	return wyn;
 }
 
 

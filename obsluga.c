@@ -28,7 +28,7 @@ void ewakuacja(int sig) {
 		exit(1);
 	}
 	int sem_id = custom_error(semget(klucz, 0, 0600), "Blad semget | obsluga");
-	sem_p(sem_id, SEM_BLOKADA);
+	if(sem_id != -1) sem_p(sem_id, SEM_BLOKADA);
 	if (adres_globalny == NULL)_exit(0);
 	if (adres_globalny->czy_ewakuacja == 1) {
 		printf(K_GREEN"\n[Obsluga] Otrzymalem sygnal SIGTERM.Ewakuacja\n\n"K_RESET);
@@ -63,7 +63,7 @@ void ewakuacja(int sig) {
 	}
 	printf(K_GREEN"=======================================\n"K_RESET);
 
-	sem_v(sem_id, SEM_BLOKADA);
+	if (sem_id != -1) sem_v(sem_id, SEM_BLOKADA);
 	_exit(0);	//Natychamiastowe wyjscie
 }
 
@@ -106,10 +106,10 @@ int main() {
 				printf(K_GREEN"[Obsluga] Kolejka usunieta - zamykanie procesu\n"K_RESET);
 				break;
 			}
-			else {
-				perror("Blad msgcrv");
-				break;
-			}
+			//else {
+				//perror("Blad msgcrv");
+				//break;
+			//}
 		}
 	}
 

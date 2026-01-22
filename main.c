@@ -72,42 +72,28 @@ void sprzatanie() {
 
 }
 
+
 void naped_tasmy() {
 	signal(SIGINT, SIG_IGN);
 	printf(K_RED"[Manager] Tasma ruszyla (PID %d)\n"K_RESET, getpid());
 
-	struct sembuf operacja_budzenie;
-	operacja_budzenie.sem_num = SEM_ZMIANA;
-	operacja_budzenie.sem_op = 1;
-	operacja_budzenie.sem_flg = 0;
-	
-	struct sembuf tasma_blokada;
-	tasma_blokada.sem_num = SEM_BLOKADA;
-	tasma_blokada.sem_op = -1;
-	tasma_blokada.sem_flg = 0;
-
-	struct sembuf tasma_odblokowana;
-	tasma_odblokowana.sem_num = SEM_BLOKADA;
-	tasma_odblokowana.sem_op = 1;
-	tasma_odblokowana.sem_flg = 0;
+	struct sembuf wez_blokade = { SEM_BLOKADA, -1, 0 };
+	struct sembuf oddaj_blokade = { SEM_BLOKADA, 1, 0 };
 
 	while (adres_restauracji->czy_otwarte == 1 || adres_restauracji->liczba_klientow > 0) {
+		if (adres_restauracji->czy_ewakuacja) break;
 
-		if (adres_restauracji->czy_ewakuacja)break;
-
-		semctl(sem_id, SEM_ZMIANA, SETVAL, 0);
-
-		//usleep(500000);
-
-		if (semop(sem_id, &tasma_blokada, 1) == -1) {
-			//Ignorowanie bladu usuniecia semafora 
-			if (errno == EINTR) continue;
-			if (errno == EIDRM || errno == EINVAL) {
-				exit(0);
-			}
-			perror("Blad tasma semafor");
-			exit(1);
+		if (semctl(sem_id, SEM_ZMIANA, SETVAL, 0) == -1) {
+			if (errno != EIDRM && errno != EINVAL) perror("Blad semctl reset");
 		}
+
+		//if (semop(sem_id, &wez_blokade, 1) == -1) exit(1);
+		while (semop(sem_id, &wez_blokade, 1) == -1) {
+			if (errno == EINTR) continue;
+			if (errno == EIDRM || errno == EINVAL) exit(0);
+			perror("Blad tasma blokuj"); exit(1);
+		}
+
 
 		Talerz ostatni = adres_restauracji->tasma[MAX_TASMA - 1];
 
@@ -116,46 +102,39 @@ void naped_tasmy() {
 		}
 		adres_restauracji->tasma[0] = ostatni;
 
-		if (semop(sem_id, &tasma_odblokowana, 1) == -1) {
-			//Ignorowanie bladu usuniecia semafora 
+		while (semop(sem_id, &oddaj_blokade, 1) == -1) {
 			if (errno == EINTR) continue;
-			if (errno == EIDRM || errno == EINVAL) {
-				exit(0);
-			}
-			perror("Blad tasma semafor");
-			exit(1);
+			if (errno == EIDRM || errno == EINVAL) exit(0);
+			perror("Blad tasma odblokuj"); exit(1);
 		}
-		
 
 		int ile_obudzic = adres_restauracji->liczba_klientow + 5;
-		if (ile_obudzic > 500)ile_obudzic = 500;	//Limit budzenia na cykl
-		if (ile_obudzic < 10)ile_obudzic = 10;		//Minimum zeby kucharz sie zalapal
+		if (ile_obudzic > 500) ile_obudzic = 500;
+		//if (semop(sem_id, &oddaj_blokade, 1) == -1) exit(1);
 
-		for (int i = 0;i < ile_obudzic;i++) {
-			if (semop(sem_id, &operacja_budzenie, 1) == -1) {
-				//Ignorowanie bladu usuniecia semafora 
-				if (errno == EINTR) continue;
-				if (errno == EIDRM || errno == EINVAL) {
-					exit(0);
-				}
-				perror("Blad tasma semafor");
-				exit(1);
-			}
+		if (semctl(sem_id, SEM_ZMIANA, SETVAL, ile_obudzic) == -1) {
+			if (errno != EIDRM && errno != EINVAL) perror("Blad semctl wake");
 		}
+		for (volatile int i = 0; i < 5000000; i++);
 	}
+
+	//semctl(sem_id, SEM_ZMIANA, SETVAL, 1000);
 	printf(K_RED"[Manager] Tasma sie zatrzymala\n"K_RESET);
 	exit(0);
 }
 
 
 int uruchom_proces(const char* sciezka, const char* nazwa) {
-	pid_t pid = custom_error(fork(), "Blad fork");
+	pid_t pid = fork();
 
 	if (pid == 0) {
-		custom_error(execl(sciezka, nazwa, NULL), "Blad execl");
+		//custom_error(execl(sciezka, nazwa, NULL), "Blad execl");
+		execl(sciezka, nazwa, NULL);
+		perror("Blad execl");
+		exit(1);
 	}
 	else if (pid == -1) {
-		fprintf(stderr, K_RED"[Manager] OSTRZEZENIE!!! System przciazony (fork == -1)\n"K_RESET);
+		//fprintf(stderr, K_RED"[Manager] OSTRZEZENIE!!! System przciazony (fork == -1)\n"K_RESET);
 		return -1;
 	}
 	return pid;
@@ -310,8 +289,12 @@ int main() {
 		if (wpuszczenie_klienci < MAX_LICZBA_KLIENTOW && aktywni_klienci<MAX_AKTYWNYCH_KLIENTOW) {
 			if (rand() % 100 < 75) {	//75% ze klient sie pojawi	//Moze potem zmienic
 				int pid_nowego = uruchom_proces("./klient", "klient");
-				if (pid_nowego != -1) {
+				if (pid_nowego == -1) {
+					printf("Limit fork osi¹gniêty\n");
+				}
+				else {
 					wpuszczenie_klienci++;
+
 				}
 			}
 			sleep(1);
