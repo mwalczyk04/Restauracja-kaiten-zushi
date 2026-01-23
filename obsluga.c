@@ -1,118 +1,218 @@
 #include "common.h"
-#include <stdio.h>
-#include <unistd.h>
-#include <time.h>
+
 #include <signal.h>
-#include <stdlib.h>
 
-#define SHM_SIZE sizeof(Restauracja)
 
-Restauracja* adres_globalny = NULL;
 
-int pobierz_cene(int typ) {
-	if (typ == 1)return CENA_DANIA_1;
-	if (typ == 2)return CENA_DANIA_2;
-	if (typ == 3)return CENA_DANIA_3;
-	if (typ == 4)return CENA_DANIA_4;
-	if (typ == 5)return CENA_DANIA_5;
-	if (typ == 6)return CENA_DANIA_6;
-	return 0;
+Restauracja* adres_global = NULL;
+
+int sem_id_global = -1;
+
+
+
+void handler_sigterm(int sig) {
+
+    if (sem_id_global != -1) sem_p(sem_id_global, SEM_BLOKADA);
+
+    
+
+    printf(K_GREEN "\n========== RAPORT OBSLUGI/KASY ==========\n" K_RESET);
+
+    if (adres_global) {
+
+       
+
+        printf(K_GREEN "PRODUKTY SPRZEDANE (KASA):\n" K_RESET);
+
+        int utarg_suma = 0;
+
+        for(int i=1; i<=6; i++) {
+
+            if (adres_global->stat_sprzedane[i] > 0) {
+
+                int cena = pobierz_cene(i);
+
+                int wartosc = adres_global->stat_sprzedane[i] * cena;
+
+                printf(K_GREEN "Danie typ %d: %d szt x %d zl = %d zl\n" K_RESET, 
+
+                       i, adres_global->stat_sprzedane[i], cena, wartosc);
+
+                utarg_suma += wartosc;
+
+            }
+
+        }
+
+        printf(K_GREEN "UTARG (z komunikatow): %d zl\n" K_RESET, adres_global->utarg);
+
+        printf(K_GREEN "UTARG (wyliczony): %d zl\n" K_RESET, utarg_suma);
+
+        
+
+        
+
+        printf(K_GREEN "\nPRODUKTY POZOSTALE NA TASMIE:\n" K_RESET);
+
+        int straty = 0;
+
+        int znaleziono = 0;
+
+        
+
+        for(int i=0; i<MAX_TASMA; i++) {
+
+            if (adres_global->tasma[i].rodzaj != 0) {
+
+                int cena = pobierz_cene(adres_global->tasma[i].rodzaj);
+
+                printf(K_GREEN " - Pozycja %d: typ %d (%d zl)\n" K_RESET, 
+
+                       i, adres_global->tasma[i].rodzaj, cena);
+
+                straty += cena;
+
+                znaleziono = 1;
+
+            }
+
+        }
+
+        
+
+        if (!znaleziono) {
+
+            printf(K_GREEN " (brak - tasma pusta)\n" K_RESET);
+
+        } else {
+
+            printf(K_GREEN "KWOTA ZMARNOWANA: %d zl\n" K_RESET, straty);
+
+        }
+
+        
+
+        adres_global->straty = straty;
+
+    }
+
+    printf(K_GREEN "=========================================\n" K_RESET);
+
+    
+
+    if (sem_id_global != -1) sem_v(sem_id_global, SEM_BLOKADA);
+
+    _exit(0);
+
 }
 
-void ewakuacja(int sig) {
-	usleep(200000);
 
-	key_t klucz = ftok(".", ID_PROJEKT);
-	if (klucz == -1) {
-		perror("Blad utworzenia klucza!");
-		exit(1);
-	}
-	int sem_id = custom_error(semget(klucz, 0, 0600), "Blad semget | obsluga");
-	if(sem_id != -1) sem_p(sem_id, SEM_BLOKADA);
-	if (adres_globalny == NULL)_exit(0);
-	if (adres_globalny->czy_ewakuacja == 1) {
-		printf(K_GREEN"\n[Obsluga] Otrzymalem sygnal SIGTERM.Ewakuacja\n\n"K_RESET);
-	}
-	else {
-		printf("[Obsluga] Koniec zmiany\n");
-	}
-
-	printf(K_GREEN"=======================================\n"K_RESET);
-	printf(K_GREEN"[Obsluga] RAPORT FINANSOWY:\n"K_RESET);
-	printf(K_GREEN" Utarg: %d zl\n"K_RESET, adres_globalny->utarg);
-	printf(K_GREEN" Zmarnowane jedzienie:\n"K_RESET);
-	int strata = 0;
-	int znalezione = 0;
-
-	for (int i = 0;i < MAX_TASMA;i++) {
-		int typ = adres_globalny->tasma[i].rodzaj;
-
-		if (typ != 0) {
-			int cena = pobierz_cene(typ);
-			printf(K_GREEN" - Pozycja %2d: Danie typu %d o wartosci %d zl\n"K_RESET, i, typ, cena);
-			strata += cena;
-			znalezione = 1;
-		}
-
-	}
-	if (!znalezione) {
-		printf(K_GREEN"Tasma pusta , brak strat\n"K_RESET);
-	}
-	else {
-		printf(K_GREEN"LACZNA WARTOSC STRAT: %d zl\n"K_RESET, strata);
-	}
-	printf(K_GREEN"=======================================\n"K_RESET);
-
-	if (sem_id != -1) sem_v(sem_id, SEM_BLOKADA);
-	_exit(0);	//Natychamiastowe wyjscie
-}
 
 int main() {
-	signal(SIGINT, SIG_IGN);	//Ignorowanie Ctrl+C
-	signal(SIGTERM, ewakuacja);
 
-	key_t klucz_shm = ftok(".", ID_PROJEKT);
-	key_t klucz_msg = ftok(".", ID_KOLEJKA);
-	if (klucz_shm == -1 || klucz_msg == -1) {
-		perror("Blad utworzenia klucza!");
-		exit(1);
-	}
+    setbuf(stdout, NULL);
 
-	int shm_id = custom_error(shmget(klucz_shm, SHM_SIZE, 0600), "Blad shmget | obsluga");
-	
-	int msg_id = custom_error(msgget(klucz_msg, IPC_CREAT | 0600), "Blad msgget | obsluga");
+    signal(SIGINT, SIG_IGN);
 
-	Restauracja* adres = (Restauracja*)shmat(shm_id, NULL, 0);
-	if (adres == (void*)-1) {
-		perror("Blad przylaczania do pamieci | obsluga");
-		exit(1);
-	}
-	adres_globalny = adres;
+    signal(SIGTERM, handler_sigterm);
 
-	printf(K_GREEN"[Obsluga] Kasjer gotowy. Czekanie na platnosci\n"K_RESET);
+    
 
-	KomunikatZaplaty msg;
+    key_t k = ftok(".", ID_PROJEKT);
 
-	while (1) {
-		//Odbieranie komunikatu typu 1
-		int wynik = msgrcv(msg_id, &msg, sizeof(msg) - sizeof(long), 1, 0);
-		
-		if (wynik != -1) {
-			printf(K_GREEN"[Obsluga] Klient %d placi rachunek: %d zl\n"K_RESET, msg.pid_klienta, msg.kwota);
-			adres->utarg += msg.kwota;
-		}
-		else {
-			if (errno == EIDRM || errno == EINVAL) {
-				printf(K_GREEN"[Obsluga] Kolejka usunieta - zamykanie procesu\n"K_RESET);
-				break;
-			}
-			//else {
-				//perror("Blad msgcrv");
-				//break;
-			//}
-		}
-	}
+    int shmid = shmget(k, sizeof(Restauracja), 0600);
 
-	shmdt(adres);
-	return 0;
+    int semid = semget(k, ILOSC_SEM, 0600);
+
+    int msgid = msgget(ftok(".", ID_KOLEJKA), 0600);
+
+    
+
+    Restauracja* adres = (Restauracja*)shmat(shmid, NULL, 0);
+
+    adres_global = adres;
+
+    sem_id_global = semid;
+
+    
+
+    printf(K_GREEN "[Obsluga] Kasjer + tasma gotowa\n" K_RESET);
+
+    
+
+    while (!adres->czy_ewakuacja) {
+
+        // Odbieranie płatności
+
+        KomunikatZaplaty msg;
+
+        while (msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 1, IPC_NOWAIT) != -1) {
+
+            sem_p(semid, SEM_BLOKADA);
+
+            adres->utarg += msg.kwota;
+
+            printf(K_GREEN "[Kasa] Wplyw %d zl od grupy %d\n" K_RESET, msg.kwota, msg.pid_klienta);
+
+            sem_v(semid, SEM_BLOKADA);
+
+        }
+
+        
+
+        BUSY_WAIT(5000000); 
+
+        
+
+        // Przesunięcie taśmy
+
+        sem_p(semid, SEM_BLOKADA);
+
+        
+
+        Talerz ostatni = adres->tasma[MAX_TASMA - 1];
+
+        
+
+        for(int i = MAX_TASMA - 1; i > 0; i--) {
+
+            adres->tasma[i] = adres->tasma[i - 1];
+
+        }
+
+        
+
+        adres->tasma[0] = ostatni;
+
+        
+
+        int n = 1 + adres->liczba_aktywnych_grup;
+
+        sem_v(semid, SEM_BLOKADA);
+
+        
+
+    
+
+        // OBUDZENIE wszystkich czekających (kucharz + klienci)
+
+        sem_op_val(semid, SEM_BAR_START, n);
+
+        
+
+        // CZEKANIE aż wszyscy się obudzą i zakończą turę
+
+        for(int i = 0; i < n; i++) {
+
+            sem_op(semid, SEM_BAR_STOP, -1);
+
+        }
+
+    }
+
+    
+
+    return 0;
+
 }
+

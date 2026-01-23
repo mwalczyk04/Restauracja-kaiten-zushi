@@ -1,490 +1,308 @@
 #include "common.h"
-#include <time.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
 #include <pthread.h>
-#include <signal.h>
 
-#define SHM_SIZE sizeof(Restauracja)
-
-Restauracja* adres;	//Zmienna globalna dla watkow
-int sem_id;
+Restauracja* adres;
+int sem_id, msg_id;
 int pid_grupy;
 int czy_vip = 0;
-
-//Globalny numer zeby watki wiedzialy gdzie siedza
-// 0 = lada  1+ numer stolika
+int rachunek_grupy = 0;
 int numer_stolika_globalny = 0;
 
-int rachunek_grupy = 0;
+
+int sem_private_id; 
+
+#define SEM_PRIV_START 0  // Wątki czekają na start tury
+#define SEM_PRIV_DONE  1  // Główny wątek czeka na zakończenie pracy wątków
+
 pthread_mutex_t mutex_rachunek = PTHREAD_MUTEX_INITIALIZER;
 
-typedef struct {
-	int nr_osoby;
-	int czy_dziecko;//0 = dorosly  1 = dziecko
-}DaneOsoby;
+// Flagi stanu
+volatile int koniec_posilku = 0;
+int liczba_najedzonych = 0;
+pthread_mutex_t mutex_stan = PTHREAD_MUTEX_INITIALIZER;
 
+typedef struct {
+    int nr_osoby;
+    int ile_zje;
+    int czy_dziecko; // 1 = Dziecko, 0 = Dorosły
+} DaneOsoby;
 
 void* zachowanie_osoby(void* arg) {
-	DaneOsoby* dane_osoby = (DaneOsoby*)arg;
-	int nr = dane_osoby->nr_osoby;
-	int dziecko = dane_osoby->czy_dziecko;
+    DaneOsoby* dane = (DaneOsoby*)arg;
+    
+    int moj_specjal = 0;
+    int zjedzone = 0;
+    int zgloszono_koniec = 0;
+    
+    char rola[20];
+    if (dane->czy_dziecko) sprintf(rola, "Dziecko");
+    else sprintf(rola, "Dorosly");
 
+    while (1) {
+        
+        sem_p(sem_private_id, SEM_PRIV_START);
+        
+        
+        if (koniec_posilku) break;
+        
+        
+        sem_p(sem_id, SEM_BLOKADA);
+        
+        //Logika jedzenia
+        if (zjedzone < dane->ile_zje) {
+            
+            //Zamawianie specjalne (30% szans)
+            if (moj_specjal == 0 && numer_stolika_globalny > 0) {
+                if (rand() % 100 < 30) { 
+                    for(int i=0; i<MAX_ZAMOWIEN; i++) {
+                        if(adres->tablet[i].pid_klienta == 0) {
+                            adres->tablet[i].pid_klienta = pid_grupy;
+                            adres->tablet[i].typ_dania = 4 + (rand() % 3);
+                            moj_specjal = adres->tablet[i].typ_dania; 
+                            
+                            char* kolor = czy_vip ? K_YELLOW : K_BLUE;
+                            printf("%s[GRUPA %d] %s ZAMAWIA Specjalne typ %d\n" K_RESET, 
+                                   kolor, pid_grupy, rola, moj_specjal);
+                            break;
+                        }
+                    }
+                }
+            }
 
-	int ile_zjedza = 3 + (rand() % 8);
+            //Pobieranie z taśmy
+            int moj_idx = numer_stolika_globalny % MAX_TASMA;
+            Talerz t = adres->tasma[moj_idx];
+            int jem = 0;
+            
+            if (t.rodzaj != 0) {
+                if (moj_specjal > 0) {
+                    if (t.rezerwacja_dla == pid_grupy && t.rodzaj == moj_specjal) {
+                        jem = 1;
+                        char* kolor = czy_vip ? K_YELLOW : K_BLUE;
+                        printf("%s[GRUPA %d] %s OTRZYMAL Specjalne typ %d\n" K_RESET, 
+                               kolor, pid_grupy, rola, t.rodzaj);
+                        moj_specjal = 0;
+                    }
+                } else {
+                    if (t.rezerwacja_dla == 0 && t.rodzaj <= 3) {
+                        jem = 1;
+                        char* kolor = czy_vip ? K_YELLOW : K_BLUE;
+                        printf("%s[GRUPA %d] %s Zjadl Standardowe typ %d\n" K_RESET, 
+                               kolor, pid_grupy, rola, t.rodzaj);
+                    }
+                }
+            }
 
-	for (int k = 0;k < ile_zjedza;k++) {
-
-		if (adres->czy_ewakuacja == 1)break;
-
-		int czy_specjal = 0;
-		int typ_zamowiony = 0;
-
-		if (rand() % 100 < 30) {
-			typ_zamowiony = 4 + (rand() % 3);
-			sem_p(sem_id, SEM_BLOKADA);
-
-			for (int i = 0;i < MAX_ZAMOWIEN;i++) {
-				if (adres->tablet[i].pid_klienta == 0) {
-					adres->tablet[i].pid_klienta = pid_grupy;
-					adres->tablet[i].typ_dania = typ_zamowiony;
-					czy_specjal = 1;
-					if (czy_vip) {
-						printf(K_YELLOW"[VIP %d] Zamawiam w tablecie danie %d\n"K_RESET,getpid(), typ_zamowiony);
-					}
-					else {
-						printf(K_BLUE"[GRUPA %d] Zamawiam w tablecie danie %d\n"K_RESET, getpid(), typ_zamowiony);
-					}
-					break;
-				}
-			}
-			sem_v(sem_id, SEM_BLOKADA);
-		}
-		else {
-			//Zamowienie standardowe
-			typ_zamowiony = 1 + (rand() % 3);
-		}
-		//Jesli brak miejsca w tablecie na specjal klkient zamawia standardowe
-		if (czy_specjal == 0 && typ_zamowiony > 3)typ_zamowiony = 1 + (rand() % 3);
-
-		int zjedzone = 0;
-		int cierpliwosc = 0;
-		
-		while (!zjedzone) {
-
-			if (adres->czy_ewakuacja == 1) break;
-
-			int strefa_lady = ILOSC_MIEJSC_LADA;
-			int moj_id_tasmy;
-
-			if (numer_stolika_globalny > 0) {
-				//Stolik patrzy na tasme po ladzie
-				moj_id_tasmy = (numer_stolika_globalny - 1) + strefa_lady;
-			}
-			else {
-				//Losowe miejscie przy ladzie
-				moj_id_tasmy = rand() % strefa_lady;
-			}
-
-			if (moj_id_tasmy >= MAX_TASMA) {
-				//Zapetlenie zeby nie wyjsc poza zakres
-				moj_id_tasmy = moj_id_tasmy % MAX_TASMA;
-			}
-
-			sem_p(sem_id, SEM_BLOKADA);
-
-			int typ_zjedzony = adres->tasma[moj_id_tasmy].rodzaj;
-			int rezerwacja = adres->tasma[moj_id_tasmy].rezerwacja_dla;
-			int moje_zamowienie = 0;
-
-			if (czy_specjal && rezerwacja == pid_grupy && typ_zjedzony == typ_zamowiony) moje_zamowienie = 1;
-			if (!czy_specjal && rezerwacja == 0 && typ_zjedzony == typ_zamowiony) moje_zamowienie = 1;
-
-			
-			int wez_cokolwiek = 0;
-
-			//Jesli czeka kilka sekund bierze cokolwiek
-			if (cierpliwosc > 300) {
-				if (typ_zjedzony != 0 && rezerwacja == 0 && typ_zjedzony <= 3) {
-					wez_cokolwiek = 1;
-				}
-			}
-
-			//Warunek ratunkowy jakby nie bylo na tasmie tego co klient chce
-			if (wez_cokolwiek && rezerwacja == 0) moje_zamowienie = 1;
-
-
-			if (moje_zamowienie) {
-
-				int do_zaplaty = 0;
-				if (typ_zjedzony == 1) { do_zaplaty = CENA_DANIA_1; }
-				else if (typ_zjedzony == 2) { do_zaplaty = CENA_DANIA_2; }
-				else if (typ_zjedzony == 3) { do_zaplaty = CENA_DANIA_3; }
-				else if (typ_zjedzony == 4) { do_zaplaty = CENA_DANIA_4; }
-				else if (typ_zjedzony == 5) { do_zaplaty = CENA_DANIA_5; }
-				else if (typ_zjedzony == 6) { do_zaplaty = CENA_DANIA_6; }
-
-				pthread_mutex_lock(&mutex_rachunek);
-				rachunek_grupy += do_zaplaty;
-				pthread_mutex_unlock(&mutex_rachunek);
-
-				adres->tasma[moj_id_tasmy].rodzaj = 0;
-				adres->tasma[moj_id_tasmy].rezerwacja_dla = 0;
-				zjedzone = 1;
-
-				if (wez_cokolwiek) {
-					if (czy_vip) {
-						printf(K_YELLOW"[VIP %d] Nie bylo tego co chcialem (%d) , wzialem inne zamowienie standardowe %d\n"K_RESET, pid_grupy, typ_zamowiony, typ_zjedzony);
-					}
-					else {
-						printf(K_BLUE"[GRUPA %d] Nie bylo tego co chcialem (%d) , wzialem inne zamowienie standardowe %d\n"K_RESET, pid_grupy, typ_zamowiony, typ_zjedzony);
-					}
-				}
-				else {
-					if (czy_specjal) {
-						if (czy_vip) {
-							printf(K_YELLOW"[VIP %d] Otrzymano zamowienie SPECJALNE %d\n"K_RESET,pid_grupy, typ_zjedzony);
-						}
-						else {
-							printf(K_BLUE"[GRUPA %d] Otrzymano zamowienie SPECJALNE %d\n"K_RESET, pid_grupy, typ_zjedzony);
-						}
-					}
-					else {
-						if (czy_vip) {
-							printf(K_YELLOW"[VIP %d] Otrzymano zamowienie STANDARDOWE %d\n"K_RESET, pid_grupy, typ_zjedzony);
-						}
-						else {
-							printf(K_BLUE"[GRUPA %d] Otrzymano zamowienie STANDARDOWE %d\n"K_RESET, pid_grupy, typ_zjedzony);
-						}
-					}
-				}
-			}
-			sem_v(sem_id, SEM_BLOKADA);
-
-			if (zjedzone) {
-				sem_v(sem_id, SEM_WOLNE);
-			}
-			else {
-				//usleep(50000);
-				sem_p(sem_id, SEM_ZMIANA);
-				cierpliwosc++;
-			}
-
-		}
-		//usleep(1000000 + (rand() % 500000));
-
-	}
-	free(dane_osoby);
-	return NULL;
+            if (jem) {
+                int cena = pobierz_cene(t.rodzaj);
+                pthread_mutex_lock(&mutex_rachunek);
+                rachunek_grupy += cena;
+                pthread_mutex_unlock(&mutex_rachunek);
+                
+                adres->stat_sprzedane[t.rodzaj]++;
+                adres->tasma[moj_idx].rodzaj = 0;
+                adres->tasma[moj_idx].rezerwacja_dla = 0;
+                zjedzone++;
+            }
+        }
+        
+        sem_v(sem_id, SEM_BLOKADA);
+        
+        
+        
+        if (zjedzone >= dane->ile_zje && !zgloszono_koniec) {
+            pthread_mutex_lock(&mutex_stan);
+            liczba_najedzonych++;
+            zgloszono_koniec = 1;
+            pthread_mutex_unlock(&mutex_stan);
+        }
+        
+        
+        sem_v(sem_private_id, SEM_PRIV_DONE);
+    }
+    
+    free(dane);
+    return NULL;
 }
 
-int podaj_bramke(int sem_stol) {
-	if (sem_stol == SEM_STOL_1) return SEM_BRAMKA_1;
-	if (sem_stol == SEM_STOL_2) return SEM_BRAMKA_2;
-	if (sem_stol == SEM_STOL_3) return SEM_BRAMKA_3;
-	if (sem_stol == SEM_STOL_4) return SEM_BRAMKA_4;
-	return -1;
-}
+int main(int argc, char** argv) {
+    if (argc < 3) return 0;
+    
+    srand(time(NULL) ^ getpid());
+    pid_grupy = getpid();
+    
+    int ile_osob = atoi(argv[1]);
+    czy_vip = atoi(argv[2]);
 
-int main() {
-	signal(SIGINT, SIG_IGN);
-	signal(SIGTERM, SIG_DFL);
+    key_t k = ftok(".", ID_PROJEKT);
+    int shmid = shmget(k, sizeof(Restauracja), 0600);
+    sem_id = semget(k, ILOSC_SEM, 0600);
+    msg_id = msgget(ftok(".", ID_KOLEJKA), 0600);
+    
+    if (shmid == -1 || sem_id == -1 || msg_id == -1) return 0;
+    adres = (Restauracja*)shmat(shmid, NULL, 0);
+    if (adres == (void*)-1) return 0;
 
-	srand(time(NULL) ^ getpid());
-	pid_grupy = getpid();
+    
+    sem_private_id = semget(IPC_PRIVATE, 2, IPC_CREAT | 0600);
+    if (sem_private_id == -1) { perror("Sem private"); return 1; }
+    
+    // Inicjalizacja na 0
+    semctl(sem_private_id, SEM_PRIV_START, SETVAL, 0);
+    semctl(sem_private_id, SEM_PRIV_DONE, SETVAL, 0);
 
-	key_t klucz_shm = ftok(".", ID_PROJEKT);
-	key_t klucz_msg = ftok(".", ID_KOLEJKA);
-	if (klucz_shm == -1 || klucz_msg == -1) {
-		perror("Blad utworzenia klucza!");
-		exit(1);
-	}
+    // Skład grupy
+    int dorosli = 1 + (rand() % ile_osob);
+    int dzieci = ile_osob - dorosli;
 
-	int shm_id = custom_error(shmget(klucz_shm, SHM_SIZE, 0600), "Blad shmget | klient");
+    printf(K_CYAN "[GRUPA %d] Sklad (%d os): %d Doroslych, %d Dzieci\n" K_RESET, 
+           pid_grupy, ile_osob, dorosli, dzieci);
 
-	sem_id = custom_error(semget(klucz_shm, 0, 0600), "Blad semget | klient");
+    //Wejście do restauracji (Czekanie na stolik)
+    sem_p(sem_id, SEM_BLOKADA);
+    if (adres->czy_otwarte == 0) {
+        sem_v(sem_id, SEM_BLOKADA);
+        semctl(sem_private_id, 0, IPC_RMID); // Sprzątamy
+        shmdt(adres);
+        return 0;
+    }
+    sem_v(sem_id, SEM_BLOKADA);
 
-	int msg_id = custom_error(msgget(klucz_msg, 0600), "Blad msgget | klient");
+    int sem_cel = SEM_STOL_4;
+    if (czy_vip) {
+        sem_p(sem_id, SEM_BLOKADA);
+        if (semctl(sem_id, SEM_STOL_4, GETVAL) > 0) sem_cel = SEM_STOL_4;
+        else if (semctl(sem_id, SEM_STOL_3, GETVAL) > 0) sem_cel = SEM_STOL_3;
+        else sem_cel = SEM_STOL_2;
+        sem_v(sem_id, SEM_BLOKADA);
+        printf(K_YELLOW "[VIP %d] Czeka na stolik (Priorytet)\n" K_RESET, pid_grupy);
+    } else {
+        if (ile_osob <= 2 && rand() % 2 == 0) {
+            sem_cel = SEM_LADA;
+            numer_stolika_globalny = 0; 
+            printf(K_BLUE "[GRUPA %d] Wybiera LADE\n" K_RESET, pid_grupy);
+        } else {
+            if (ile_osob == 1) sem_cel = SEM_STOL_1;
+            else if (ile_osob == 2) sem_cel = SEM_STOL_2;
+            else if (ile_osob == 3) sem_cel = SEM_STOL_3;
+            else sem_cel = SEM_STOL_4;
+            printf(K_BLUE "[GRUPA %d] Wybiera STOLIK\n" K_RESET, pid_grupy);
+        }
+    }
 
-	adres = (Restauracja*)shmat(shm_id, NULL, 0);
-	if (adres == (void*)-1) {
-		perror("Blad przylaczania do pamieci | klient");
-		exit(1);
-	}
+    // Blokada procesu na wejściu
+    sem_op(sem_id, sem_cel, -1);
 
-	KomunikatZaplaty msg;
+    if (adres->czy_ewakuacja) {
+        sem_op(sem_id, sem_cel, 1);
+        semctl(sem_private_id, 0, IPC_RMID);
+        shmdt(adres);
+        return 0;
+    }
 
-	if (rand() % 100 < 2) {
-		czy_vip = 1;
-	}
+    // Zajęcie miejsca w pamięci
+    sem_p(sem_id, SEM_BLOKADA);
+    int start = 0, koniec = 0;
+    if (sem_cel == SEM_LADA) { start = 0; koniec = ILOSC_MIEJSC_LADA; }
+    else if (sem_cel == SEM_STOL_1) { start = ILOSC_MIEJSC_LADA; koniec = start + ILOSC_1_OS; }
+    else if (sem_cel == SEM_STOL_2) { start = ILOSC_MIEJSC_LADA + ILOSC_1_OS; koniec = start + ILOSC_2_OS; }
+    else if (sem_cel == SEM_STOL_3) { start = ILOSC_MIEJSC_LADA + ILOSC_1_OS + ILOSC_2_OS; koniec = start + ILOSC_3_OS; }
+    else { start = ILOSC_MIEJSC_LADA + ILOSC_1_OS + ILOSC_2_OS + ILOSC_3_OS; koniec = start + ILOSC_4_OS; }
+    
+    for(int i=start; i<koniec; i++) {
+        if (adres->stoly[i] == 0) {
+            adres->stoly[i] = pid_grupy;
+            numer_stolika_globalny = i;
+            break;
+        }
+    }
+    if (numer_stolika_globalny == 0 && sem_cel != SEM_LADA) numer_stolika_globalny = start;
+    
+    adres->liczba_aktywnych_grup++;
+    sem_v(sem_id, SEM_BLOKADA);
 
-	sem_p(sem_id, SEM_BLOKADA);
-	//Jesli zamkniete to nie wchodzi
-	if (adres->czy_otwarte == 0) {
-		sem_v(sem_id, SEM_BLOKADA);
-		return 0;
-	}
+    char* kolor = czy_vip ? K_YELLOW : K_BLUE;
+    printf("%s[%s %d] Usiadl przy stoliku nr %d\n" K_RESET, kolor, czy_vip ? "VIP" : "GRUPA", pid_grupy, numer_stolika_globalny);
 
-	adres->liczba_klientow++;
-	sem_v(sem_id, SEM_BLOKADA);;
+    //URUCHOMIENIE WĄTKÓW
+    pthread_t watki[ile_osob]; 
 
-		//Generowanie grupy klientow
-		int liczba_osob = 1 + (rand() % 4);
-		int dorosli = 1 + (rand() % liczba_osob);
-		int dzieci = liczba_osob - dorosli;
+    for (int i = 0; i < ile_osob; i++) {
+        DaneOsoby* x = malloc(sizeof(DaneOsoby));
+        x->nr_osoby = i + 1;
+        x->ile_zje = 3 + (rand() % 8);
 
-	if (czy_vip) {
-		printf(K_YELLOW"[VIP %d](%d os) Przychodzi\n"K_RESET, getpid(),liczba_osob);
-	}
-	else {
-		printf(K_BLUE"GRUPA o PID = %d (%d os) przychodzi\n"K_RESET, getpid(),liczba_osob);
-	}
-	fflush(stdout);
-	sleep(rand() % 2);
+        if (i < dorosli) x->czy_dziecko = 0;
+        else x->czy_dziecko = 1;
 
-		int semafor_docelowy = -1;
-		int ilosc_do_zajecia = 0;
-		int bramka = -1;
+        pthread_create(&watki[i], NULL, zachowanie_osoby, (void*)x);
+    }
 
-		if (czy_vip) {
+    
+    while (!adres->czy_ewakuacja) {
+        // Czekamy na turę od Obsługi (Globalny)
+        sem_op(sem_id, SEM_BAR_START, -1);
+        
+        if (adres->czy_ewakuacja) {
+            koniec_posilku = 1;
+            // Odblokuj wątki żeby wyszły
+            sem_op_val(sem_private_id, SEM_PRIV_START, ile_osob);
+            sem_op(sem_id, SEM_BAR_STOP, 1);
+            break;
+        }
+        
+        //  Start Tury Wątków (Prywatny)
+        // 
+        sem_op_val(sem_private_id, SEM_PRIV_START, ile_osob);
+        
+        // Czekamy na koniec Tury Wątków (Prywatny)
+        // 
+        sem_op_val(sem_private_id, SEM_PRIV_DONE, -ile_osob);
+        
+        //Koniec Tury Globalnej
+        sem_op(sem_id, SEM_BAR_STOP, 1);
+        
+        
+        pthread_mutex_lock(&mutex_stan);
+        if (liczba_najedzonych >= ile_osob) {
+            koniec_posilku = 1;
+            
+            pthread_mutex_unlock(&mutex_stan);
+            break; 
+        }
+        pthread_mutex_unlock(&mutex_stan);
+    }
+    
+    
+    if (!adres->czy_ewakuacja) {
+        sem_op_val(sem_private_id, SEM_PRIV_START, ile_osob);
+    }
 
-			int znaleziono = 0;
+    // Czekanie na zakończenie wątków
+    for (int i = 0; i < ile_osob; i++) {
+        pthread_join(watki[i], NULL);
+    }
 
-			sem_p(sem_id, SEM_BLOKADA);
-			int wolne_4 = semctl(sem_id, SEM_STOL_4, GETVAL);
-			int wolne_3 = semctl(sem_id, SEM_STOL_3, GETVAL);
-			int wolne_2 = semctl(sem_id, SEM_STOL_2, GETVAL);
-			int wolne_1 = semctl(sem_id, SEM_STOL_1, GETVAL);
-			sem_v(sem_id, SEM_BLOKADA);
+    //  Wyjście 
+    if (rachunek_grupy > 0 && !adres->czy_ewakuacja) {
+        KomunikatZaplaty m = {1, pid_grupy, rachunek_grupy};
+        msgsnd(msg_id, &m, sizeof(m) - sizeof(long), 0);
+        printf("%s[%s %d] Placi %d zl i wychodzi\n" K_RESET, 
+               kolor, czy_vip ? "VIP" : "GRUPA", pid_grupy, rachunek_grupy);
+    }
 
-			//Najpierw szukamy pasujacego albo wiekszego stolika zeby VIP nie czekal
-			
-			if (liczba_osob == 1) {
-				if (wolne_1 >= 1) { semafor_docelowy = SEM_STOL_1; ilosc_do_zajecia = 1; znaleziono = 1; }
-				else if (wolne_2 >= 2) { semafor_docelowy = SEM_STOL_2; ilosc_do_zajecia = 2; znaleziono = 1; }
-				else if (wolne_3 >= 3) { semafor_docelowy = SEM_STOL_3; ilosc_do_zajecia = 3; znaleziono = 1; }
-				else if (wolne_4 >= 4) { semafor_docelowy = SEM_STOL_4; ilosc_do_zajecia = 4; znaleziono = 1; }
-			}
-			else if (liczba_osob == 2) {
-				if (wolne_2 >= 2) { semafor_docelowy = SEM_STOL_2; ilosc_do_zajecia = 2; znaleziono = 1; }
-				else if (wolne_3 >= 3) { semafor_docelowy = SEM_STOL_3; ilosc_do_zajecia = 3; znaleziono = 1; }
-				else if (wolne_4 >= 4) { semafor_docelowy = SEM_STOL_4; ilosc_do_zajecia = 4; znaleziono = 1; }
-			}
-			else if (liczba_osob == 3) {
-				if (wolne_3 >= 3) { semafor_docelowy = SEM_STOL_3; ilosc_do_zajecia = 3; znaleziono = 1; }
-				else if (wolne_4 >= 4) { semafor_docelowy = SEM_STOL_4; ilosc_do_zajecia = 4; znaleziono = 1; }
-			}
-			else {
-				if (wolne_4 >= 4) { semafor_docelowy = SEM_STOL_4; ilosc_do_zajecia = 4; znaleziono = 1; }
-			}
+    sem_p(sem_id, SEM_BLOKADA);
+    adres->liczba_aktywnych_grup--;
+    if(numer_stolika_globalny != 0 && adres->stoly[numer_stolika_globalny] == pid_grupy) {
+        adres->stoly[numer_stolika_globalny] = 0;
+    }
+    sem_v(sem_id, SEM_BLOKADA);
 
-			if (znaleziono) {
-				printf(K_YELLOW"[VIP %d] Zajmuje stolik %d os. Siada bez kolejki\n"K_RESET, getpid(), ilosc_do_zajecia);
-
-				bramka = podaj_bramke(semafor_docelowy);
-				sem_p(sem_id, bramka);
-				sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
-				sem_v(sem_id, bramka);
-			}
-			else {
-				printf(K_YELLOW"[VIP %d] Wszystko zajete, VIP musi czekac\n"K_RESET, getpid());
-				if (liczba_osob == 1) { semafor_docelowy = SEM_STOL_1; ilosc_do_zajecia = 1; }
-				else if (liczba_osob == 2) { semafor_docelowy = SEM_STOL_2; ilosc_do_zajecia = 2; }
-				else if (liczba_osob == 3) { semafor_docelowy = SEM_STOL_3; ilosc_do_zajecia = 3; }
-				else { semafor_docelowy = SEM_STOL_4; ilosc_do_zajecia = 4; }
-
-				bramka = podaj_bramke(semafor_docelowy);
-				sem_p(sem_id, bramka);
-				sem_v(sem_id, bramka);
-				sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);
-			}
-			
-			
-
-
-		}
-		else {
-			//Zwykly klient
-
-
-			int czy_lada = 0;
-
-			if (dzieci == 0 && liczba_osob <= 2) {
-				if (rand() % 2 == 0) czy_lada = 1;	//50% szans na lade dla grup do 2 osob bez dzieci
-			}
-
-
-			if (czy_lada) {
-				semafor_docelowy = SEM_LADA;
-				ilosc_do_zajecia = liczba_osob;
-				printf(K_BLUE"[GRUPA %d](%d os) Zajmuje miejsce przy ladzie\n"K_RESET, getpid(), liczba_osob);
-			}
-			else {
-				switch (liczba_osob)
-				{
-				case 1:
-					if (rand() % 2 == 0) {
-						semafor_docelowy = SEM_STOL_1;
-						ilosc_do_zajecia = 1;
-						//printf(K_BLUE"[GRUPA %d](1 os) Stolik 1 os(Zajmuje caly)\n"K_RESET, getpid());
-						printf(K_BLUE"[GRUPA %d](1 os) Czeka na stolik 1 os(Zajmuje caly)\n"K_RESET, getpid());
-					}
-					else {
-						semafor_docelowy = SEM_STOL_2;
-						ilosc_do_zajecia = 1;
-						//printf(K_BLUE"[GRUPA %d](1 os) Stolik 2 os (Dosiada sie)\n"K_RESET, getpid());
-						printf(K_BLUE"[GRUPA %d](1 os) Czeka na stolik 2 os(Dosiada sie)\n"K_RESET, getpid());
-					}
-					break;
-				case 2:
-					if (rand() % 2 == 0) {
-						semafor_docelowy = SEM_STOL_2;
-						ilosc_do_zajecia = 2;
-						//printf(K_BLUE"[GRUPA %d](2 os) Stolik 2 os (Zajmuje caly)\n"K_RESET, getpid());
-						printf(K_BLUE"[GRUPA %d](2 os) Czeka na stolik 2 os(Zajmuje caly)\n"K_RESET, getpid());
-					}
-					else {
-						semafor_docelowy = SEM_STOL_4;
-						ilosc_do_zajecia = 2;
-						//printf(K_BLUE"[GRUPA %d](2 os) Stolik 4 os (Dosiada sie)\n"K_RESET, getpid());
-						printf(K_BLUE"[GRUPA %d](2 os) Czeka na stolik 4 os(Dosiada sie)\n"K_RESET, getpid());
-					}
-					break;
-				case 3:
-					semafor_docelowy = SEM_STOL_3;
-					ilosc_do_zajecia = 3;
-					//printf(K_BLUE"[GRUPA %d](3 os) Stolik 3 os (Zajmuje caly)\n"K_RESET, getpid());
-					printf(K_BLUE"[GRUPA %d](3 os) Czeka na stolik 3 os(Zajmuje caly)\n"K_RESET, getpid());
-					break;
-				default:
-					semafor_docelowy = SEM_STOL_4;
-					ilosc_do_zajecia = 4;
-					//printf(K_BLUE"[GRUPA %d](4 os) Stolik 4 os (Zajmuje caly)\n"K_RESET, getpid());
-					printf(K_BLUE"[GRUPA %d](4 os) Czeka na stolik 4 os(Zajmuje caly)\n"K_RESET, getpid());
-					break;
-				}
-			}
-			if (semafor_docelowy != SEM_LADA) {
-				bramka = podaj_bramke(semafor_docelowy);
-				//Sprawdzenie czy VIP w kolejce
-				sem_p(sem_id, bramka);
-				sem_v(sem_id, bramka);
-			}
-			sem_zmiana(sem_id, semafor_docelowy, -ilosc_do_zajecia);	//Wejscie do kolejki
-		}
-		
-
-		int moj_id_tablicy = -1;
-		numer_stolika_globalny = 0;
-
-		sem_p(sem_id, SEM_BLOKADA);
-		if (semafor_docelowy != SEM_LADA) {
-			int start = 0, koniec = 0;
-
-			if (semafor_docelowy == SEM_STOL_1) {
-				start = 0;
-				koniec = ILOSC_1_OS - 1;
-			}
-			else if (semafor_docelowy == SEM_STOL_2) {
-				start = ILOSC_1_OS;
-				koniec = start + ILOSC_2_OS - 1;
-			}
-			else if (semafor_docelowy == SEM_STOL_3) {
-				start = ILOSC_1_OS + ILOSC_2_OS;
-				koniec = start + ILOSC_3_OS - 1;
-			}
-			else {
-				start = ILOSC_1_OS + ILOSC_2_OS + ILOSC_3_OS;
-				koniec = start + ILOSC_4_OS - 1;
-			}
-
-			for (int i = start;i <= koniec;i++) {
-				if (adres->stoly[i] == 0) {
-					adres->stoly[i] = 1;
-					moj_id_tablicy = i;
-					numer_stolika_globalny = i + 1;
-					break;
-				}
-			}
-			//Zabezpieczenie
-			if (moj_id_tablicy == -1) {
-				numer_stolika_globalny = start + 1;
-				moj_id_tablicy = start;
-			}
-
-			//Zabezpieczenie przed naruszeniem pamieci
-			//if (moj_id_tablicy == -1)numer_stolika_globalny = 999;
-		}
-		if (semafor_docelowy != SEM_LADA) {
-			if (czy_vip) {
-				printf(K_YELLOW"[VIP %d](%d os) Siada przy STOLIKU NR %d\n"K_RESET, getpid(),liczba_osob ,moj_id_tablicy);
-			}
-			else {
-				printf(K_BLUE"[GRUPA %d](%d os) Siada przy STOLIKU NR %d\n"K_RESET, getpid(),liczba_osob, moj_id_tablicy);
-			}
-		}
-		else {
-			printf(K_BLUE"[GRUPA %d] Siada przy LADZIE\n"K_RESET, getpid());
-		}
-		
-		sem_v(sem_id, SEM_BLOKADA);
-
-		//Tworzenie osob w grupie
-		pthread_t watki[liczba_osob];
-
-		for (int i = 0;i < liczba_osob;i++) {
-			DaneOsoby* x = malloc(sizeof(DaneOsoby));
-			x->nr_osoby = i + 1;
-
-			if (i < dorosli) {
-				x->czy_dziecko = 0;
-			}
-			else {
-				x->czy_dziecko = 1;
-			}
-
-			pthread_create(&watki[i], NULL, zachowanie_osoby, (void*)x);
-		}
-		for (int i = 0;i < liczba_osob;i++) {
-			pthread_join(watki[i], NULL);
-		}
-
-		//Platnosc
-		if (rachunek_grupy > 0 && adres->czy_ewakuacja == 0) {
-			msg.mtype = 1;
-			msg.pid_klienta = getpid();
-			msg.kwota = rachunek_grupy;
-
-			if (msgsnd(msg_id, &msg, sizeof(msg) - sizeof(long), 0) == -1) {
-				perror("Blad wyslania zaplaty");
-			}
-			else {
-				if (czy_vip) {
-					printf(K_YELLOW"[VIP %d] Wyslano do kasy %d zl, Wychodzimy\n"K_RESET,getpid(), rachunek_grupy);
-				}
-				else {
-					printf(K_BLUE"[GRUPA %d] Wyslano do kasy %d zl, Wychodzimy\n"K_RESET, getpid(), rachunek_grupy);
-				}
-			}
-		}
-
-		//Zwolnienie id stolika
-		if (moj_id_tablicy != -1) {
-			sem_p(sem_id, SEM_BLOKADA);
-			adres->stoly[moj_id_tablicy] = 0;
-			sem_v(sem_id, SEM_BLOKADA);
-		}
-
-
-		sem_zmiana(sem_id, semafor_docelowy, ilosc_do_zajecia);	//Zwolnienie miejsca
-
-		sem_p(sem_id, SEM_BLOKADA);
-		adres->liczba_klientow--;
-		sem_v(sem_id, SEM_BLOKADA);
-
-		sem_v(sem_id, SEM_WYJSCIE);
-
-	return 0;
+    sem_op(sem_id, sem_cel, 1);
+    
+    // Usunięcie prywatnych semaforów
+    semctl(sem_private_id, 0, IPC_RMID);
+    
+    shmdt(adres);
+    return 0;
 }
