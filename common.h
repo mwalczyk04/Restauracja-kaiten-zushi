@@ -1,163 +1,140 @@
 #ifndef COMMON_H
 #define COMMON_H
+
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
-#include <unistd.h>
-#include <errno.h>
-#include <time.h>
 #include <sys/msg.h>
 #include <sys/wait.h>
-#include <stdarg.h>
+#include <errno.h>
+#include <time.h>
 #include <signal.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdarg.h>
 
 // --- KONFIGURACJA ---
-#define MAX_TASMA 20
-#define ID_PROJEKT 'O'
-#define ID_KOLEJKA 'K'
-#define MAX_ZAMOWIEN 10
-#define REZERWA_DLA_SPECJAL 3
-
-// Limity
-#define DOCELOWO_KLIENTOW 10000 
-#define MAX_W_LOKALU 500
+#define ID_PROJEKT 'M' 
+#define PLIK_RAPORTU "raport.txt"
+#define LIMIT_KLIENTOW 10000
 #define CZAS_OTWARCIA 30
+#define DELAY_BAZA 50000000 
 
-// Semafory
-#define SEM_BLOKADA 0
-#define SEM_BAR_START 1
-#define SEM_BAR_STOP 2
-#define SEM_LADA 3
-#define SEM_STOL_1 4
-#define SEM_STOL_2 5
-#define SEM_STOL_3 6
-#define SEM_STOL_4 7
-#define ILOSC_SEM 8
+// Parametry wielkoœci
+#define MAX_TASMA 30    // Fizyczna d³ugoœæ taœmy (P)
 
-// Lokal
-#define ILOSC_1_OS 4
-#define ILOSC_2_OS 4
-#define ILOSC_3_OS 4
-#define ILOSC_4_OS 4
-#define ILOSC_MIEJSC_LADA 10
-#define MAX_LICZBA_STOLIKOW (ILOSC_MIEJSC_LADA + ILOSC_1_OS + ILOSC_2_OS + ILOSC_3_OS + ILOSC_4_OS)
+// Iloœci stolików
+#define ILE_LADA 10
+#define ILE_X1 5
+#define ILE_X2 5
+#define ILE_X3 5
+#define ILE_X4 5
 
-// Ceny
-#define CENA_DANIA_1 10
-#define CENA_DANIA_2 15
-#define CENA_DANIA_3 20
-#define CENA_DANIA_4 40
-#define CENA_DANIA_5 50
-#define CENA_DANIA_6 60
+// Ca³kowita liczba miejsc siedz¹cych (N)
+#define MAX_MIEJSC (ILE_LADA + (ILE_X1*1) + (ILE_X2*2) + (ILE_X3*3) + (ILE_X4*4))
 
-#define PLIK_RAPORT "raport.txt"
+// --- SEMAFORY ---
+#define SEM_ACCESS      0 
 
-// Kolory
-#define K_RED     "\x1B[31m"
-#define K_GREEN   "\x1B[32m"
-#define K_YELLOW  "\x1B[33m"
-#define K_BLUE    "\x1B[34m"
-#define K_MAGENTA "\x1B[35m"
-#define K_CYAN    "\x1B[36m"
-#define K_RESET   "\033[0m"
+#define SEM_Q_VIP_LADA  1
+#define SEM_Q_VIP_X1    2
+#define SEM_Q_VIP_X2    3
+#define SEM_Q_VIP_X3    4
+#define SEM_Q_VIP_X4    5
 
-#define TRYB_BEZ_SLEEP 
+#define SEM_Q_STD_LADA  6
+#define SEM_Q_STD_X1    7
+#define SEM_Q_STD_X2    8
+#define SEM_Q_STD_X3    9
+#define SEM_Q_STD_X4    10
 
-#ifdef TRYB_BEZ_SLEEP
-#define sleep(x) ((void)0)
-#define usleep(x) ((void)0)
-#endif
+#define LICZBA_SEMAFOROW 11
 
-#define BUSY_WAIT(cycles) do { for(volatile long _i = 0; _i < (cycles); _i++); } while(0)
+enum TypMiejsca { T_LADA = 0, T_X1 = 1, T_X2 = 2, T_X3 = 3, T_X4 = 4 };
+
+#define CENA_STD_1 10
+#define CENA_STD_2 15
+#define CENA_STD_3 20
+#define CENA_SPC_1 40
+#define CENA_SPC_2 50
+#define CENA_SPC_3 60
 
 typedef struct {
-    long mtype;
-    int pid_klienta;
-    int kwota;
-} KomunikatZaplaty;
-
-typedef struct {
-    int rodzaj; 
-    int rezerwacja_dla;
+    int typ;
+    int pid_rezerwacji;
+    int cena;
 } Talerz;
 
 typedef struct {
-    int pid_klienta;
-    int typ_dania;
-} Zamowienie;
+    Talerz tasma[MAX_TASMA]; // 30 slotów na jedzenie
 
-typedef struct {
-    Talerz tasma[MAX_TASMA];
-    Zamowienie tablet[MAX_ZAMOWIEN];
     
+    int stol_id[MAX_MIEJSC];
+    int stol_zajetosc[MAX_MIEJSC];
+    int stol_typ_grupy[MAX_MIEJSC];
+    int stol_pojemnosc[MAX_MIEJSC];
+    int stol_is_vip[MAX_MIEJSC];
+
+    int waiting_vip[5];
+    int waiting_std[5];
+
     int czy_otwarte;
-    int utarg;
+    int czy_wejscie_zamkniete;
     int czy_ewakuacja;
-    int liczba_aktywnych_grup; 
-    int stoly[MAX_LICZBA_STOLIKOW];
-    
-    // Statystyki
-    int stat_sprzedane[7];
+    long utarg_kasa;
     int stat_wyprodukowane[7];
-    int straty;
-    int kucharz_speed; // 0=normal, 1=2x szybki, 2=0.5x wolny
+    int stat_sprzedane[7];
+    int kucharz_speed;
 } Restauracja;
 
-static inline int custom_error(int wynik, const char* msg) {
-    if (wynik == -1) { perror(msg); exit(EXIT_FAILURE); }
-    return wynik;
+typedef struct {
+    long mtype;
+    int pid_grupy;
+    int typ_dania;
+} MsgZamowienie;
+
+typedef struct {
+    long mtype;
+    int pid_grupy;
+    int kwota;
+    int is_ack;
+} MsgPlatnosc;
+
+#define TYP_ZAMOWIENIE 1
+#define KANAL_PLATNOSCI 2
+
+static inline void sem_op(int semid, int sem_num, int op) {
+    struct sembuf buf = { sem_num, op, 0 };
+    while (1) {
+        if (semop(semid, &buf, 1) == 0) break;
+        if (errno == EINTR) continue;
+        break;
+    }
 }
 
 static inline void raportuj(const char* format, ...) {
-    va_list args, args2;
+    va_list args, args_file;
     va_start(args, format);
-    va_copy(args2, args);
-    
+    va_copy(args_file, args);
     vprintf(format, args);
-    
-    FILE* fp = fopen(PLIK_RAPORT, "a");
-    if (fp != NULL) {
-        vfprintf(fp, format, args2);
-        fclose(fp);
-    }
     va_end(args);
-    va_end(args2);
+    FILE* fp = fopen(PLIK_RAPORTU, "a");
+    if (fp) { vfprintf(fp, format, args_file); fclose(fp); }
+    va_end(args_file);
 }
+#define printf raportuj
 
-#define printf raportuj 
-
-static inline void sem_op(int sem_id, int sem_num, int op) {
-    struct sembuf buf = {sem_num, op, 0};
-    while (semop(sem_id, &buf, 1) == -1) {
-        if (errno != EINTR && errno != EIDRM) break;
-    }
-}
-
-static inline void sem_op_val(int sem_id, int sem_num, int val) {
-    struct sembuf buf = {sem_num, val, 0};
-    while (semop(sem_id, &buf, 1) == -1) {
-        if (errno != EINTR && errno != EIDRM) break;
-    }
-}
-
-static inline void sem_p(int sem_id, int sem_num) { sem_op(sem_id, sem_num, -1); }
-static inline void sem_v(int sem_id, int sem_num) { sem_op(sem_id, sem_num, 1); }
-
-static inline int pobierz_cene(int typ) {
-    switch(typ) {
-        case 1: return CENA_DANIA_1;
-        case 2: return CENA_DANIA_2;
-        case 3: return CENA_DANIA_3;
-        case 4: return CENA_DANIA_4;
-        case 5: return CENA_DANIA_5;
-        case 6: return CENA_DANIA_6;
-        default: return 0;
-    }
-}
+#define K_RESET   "\033[0m"
+#define K_RED     "\033[31m"
+#define K_GREEN   "\033[32m"
+#define K_YELLOW  "\033[33m"
+#define K_BLUE    "\033[34m"
+#define K_MAGENTA "\033[35m"
+#define K_CYAN    "\033[36m"
 
 #endif

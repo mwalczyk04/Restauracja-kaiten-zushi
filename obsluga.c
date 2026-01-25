@@ -1,218 +1,48 @@
 #include "common.h"
 
-#include <signal.h>
-
-
-
-Restauracja* adres_global = NULL;
-
-int sem_id_global = -1;
-
-
-
-void handler_sigterm(int sig) {
-
-    if (sem_id_global != -1) sem_p(sem_id_global, SEM_BLOKADA);
-
-    
-
-    printf(K_GREEN "\n========== RAPORT OBSLUGI/KASY ==========\n" K_RESET);
-
-    if (adres_global) {
-
-       
-
-        printf(K_GREEN "PRODUKTY SPRZEDANE (KASA):\n" K_RESET);
-
-        int utarg_suma = 0;
-
-        for(int i=1; i<=6; i++) {
-
-            if (adres_global->stat_sprzedane[i] > 0) {
-
-                int cena = pobierz_cene(i);
-
-                int wartosc = adres_global->stat_sprzedane[i] * cena;
-
-                printf(K_GREEN "Danie typ %d: %d szt x %d zl = %d zl\n" K_RESET, 
-
-                       i, adres_global->stat_sprzedane[i], cena, wartosc);
-
-                utarg_suma += wartosc;
-
-            }
-
-        }
-
-        printf(K_GREEN "UTARG (z komunikatow): %d zl\n" K_RESET, adres_global->utarg);
-
-        printf(K_GREEN "UTARG (wyliczony): %d zl\n" K_RESET, utarg_suma);
-
-        
-
-        
-
-        printf(K_GREEN "\nPRODUKTY POZOSTALE NA TASMIE:\n" K_RESET);
-
-        int straty = 0;
-
-        int znaleziono = 0;
-
-        
-
-        for(int i=0; i<MAX_TASMA; i++) {
-
-            if (adres_global->tasma[i].rodzaj != 0) {
-
-                int cena = pobierz_cene(adres_global->tasma[i].rodzaj);
-
-                printf(K_GREEN " - Pozycja %d: typ %d (%d zl)\n" K_RESET, 
-
-                       i, adres_global->tasma[i].rodzaj, cena);
-
-                straty += cena;
-
-                znaleziono = 1;
-
-            }
-
-        }
-
-        
-
-        if (!znaleziono) {
-
-            printf(K_GREEN " (brak - tasma pusta)\n" K_RESET);
-
-        } else {
-
-            printf(K_GREEN "KWOTA ZMARNOWANA: %d zl\n" K_RESET, straty);
-
-        }
-
-        
-
-        adres_global->straty = straty;
-
-    }
-
-    printf(K_GREEN "=========================================\n" K_RESET);
-
-    
-
-    if (sem_id_global != -1) sem_v(sem_id_global, SEM_BLOKADA);
-
-    _exit(0);
-
-}
-
-
-
 int main() {
-
     setbuf(stdout, NULL);
-
-    signal(SIGINT, SIG_IGN);
-
-    signal(SIGTERM, handler_sigterm);
-
-    
-
-    key_t k = ftok(".", ID_PROJEKT);
-
-    int shmid = shmget(k, sizeof(Restauracja), 0600);
-
-    int semid = semget(k, ILOSC_SEM, 0600);
-
-    int msgid = msgget(ftok(".", ID_KOLEJKA), 0600);
-
-    
-
+    key_t klucz = ftok(".", ID_PROJEKT);
+    int shmid = shmget(klucz, sizeof(Restauracja), 0600);
+    int semid = semget(klucz, LICZBA_SEMAFOROW, 0600);
+    int msgid = msgget(klucz, 0600);
     Restauracja* adres = (Restauracja*)shmat(shmid, NULL, 0);
 
-    adres_global = adres;
+    printf(K_GREEN "[OBSLUGA] Ready.\n" K_RESET);
 
-    sem_id_global = semid;
+    while (adres->czy_otwarte && !adres->czy_ewakuacja) {
+        sem_op(semid, SEM_ACCESS, -1);
+        Talerz last = adres->tasma[MAX_TASMA - 1];
+        for (int i = MAX_TASMA - 1; i > 0; i--) adres->tasma[i] = adres->tasma[i - 1];
+        adres->tasma[0] = last;
+        sem_op(semid, SEM_ACCESS, 1);
 
-    
+        //Sprawdzenie czy jest jakaœ p³atnoœæ
+        struct msqid_ds buf;
+        msgctl(msgid, IPC_STAT, &buf);
 
-    printf(K_GREEN "[Obsluga] Kasjer + tasma gotowa\n" K_RESET);
+        if (buf.msg_qnum > 0) {
+            MsgPlatnosc msg;
+            // Odbieranie p³atnoœci (typ 2)
+            if (msgrcv(msgid, &msg, sizeof(MsgPlatnosc) - sizeof(long), KANAL_PLATNOSCI, IPC_NOWAIT) != -1) {
+                sem_op(semid, SEM_ACCESS, -1);
+                adres->utarg_kasa += msg.kwota;
+                sem_op(semid, SEM_ACCESS, 1);
 
-    
-
-    while (!adres->czy_ewakuacja) {
-
-        // Odbieranie pÅ‚atnoÅ›ci
-
-        KomunikatZaplaty msg;
-
-        while (msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 1, IPC_NOWAIT) != -1) {
-
-            sem_p(semid, SEM_BLOKADA);
-
-            adres->utarg += msg.kwota;
-
-            printf(K_GREEN "[Kasa] Wplyw %d zl od grupy %d\n" K_RESET, msg.kwota, msg.pid_klienta);
-
-            sem_v(semid, SEM_BLOKADA);
-
+                MsgPlatnosc reply = { msg.pid_grupy, msg.pid_grupy, 0, 1 };
+                msgsnd(msgid, &reply, sizeof(reply) - sizeof(long), 0);
+            }
         }
 
-        
-
-        BUSY_WAIT(5000000); 
-
-        
-
-        // PrzesuniÄ™cie taÅ›my
-
-        sem_p(semid, SEM_BLOKADA);
-
-        
-
-        Talerz ostatni = adres->tasma[MAX_TASMA - 1];
-
-        
-
-        for(int i = MAX_TASMA - 1; i > 0; i--) {
-
-            adres->tasma[i] = adres->tasma[i - 1];
-
-        }
-
-        
-
-        adres->tasma[0] = ostatni;
-
-        
-
-        int n = 1 + adres->liczba_aktywnych_grup;
-
-        sem_v(semid, SEM_BLOKADA);
-
-        
-
-    
-
-        // OBUDZENIE wszystkich czekajÄ…cych (kucharz + klienci)
-
-        sem_op_val(semid, SEM_BAR_START, n);
-
-        
-
-        // CZEKANIE aÅ¼ wszyscy siÄ™ obudzÄ… i zakoÅ„czÄ… turÄ™
-
-        for(int i = 0; i < n; i++) {
-
-            sem_op(semid, SEM_BAR_STOP, -1);
-
-        }
-
+        long delay = DELAY_BAZA;
+        if (adres->kucharz_speed == 1) delay /= 4;
+        if (adres->kucharz_speed == 2) delay *= 4;
+        // for(volatile long k=0; k<delay; k++);
     }
 
-    
-
+    long w = 0;
+    for (int i = 0; i < MAX_TASMA; i++) if (adres->tasma[i].typ) w += adres->tasma[i].cena;
+    printf(K_GREEN "\n[OBSLUGA] Koniec. Zmarnowano: %ld zl\n" K_RESET, w);
+    shmdt(adres);
     return 0;
-
 }
-

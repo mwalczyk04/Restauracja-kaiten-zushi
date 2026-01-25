@@ -1,278 +1,146 @@
 #include "common.h"
-#include <signal.h>
-#include <sys/wait.h>
 
-int shm_id = -1, sem_id = -1, msg_id = -1;
-Restauracja * adres_restauracji = NULL;
-int pid_kucharza = -1;
-int pid_kierownika = -1;
-int pid_obslugi = -1;
+int shmid = -1, semid = -1, msgid = -1;
+Restauracja* adres = NULL;
+pid_t pid_kucharz = 0, pid_obsluga = 0;
 
-void sprzatanie() {
-    signal(SIGINT, SIG_IGN);
-    signal(SIGTERM, SIG_IGN);
-    
-    printf(K_RED "\n[Manager] Zamykanie restauracji...\n" K_RESET);
-    
-    // Zako艅czenie proces贸w roboczych
-    if (pid_obslugi > 0) kill(pid_obslugi, SIGTERM);
-    if (pid_kucharza > 0) kill(pid_kucharza, SIGTERM);
-    if (pid_kierownika > 0) kill(pid_kierownika, SIGTERM);
-    
-    // Zabicie pozosta艂ych dzieci
-    kill(0, SIGTERM);
-    
-    // Czekanie na zako艅czenie
-    while(wait(NULL) > 0);
-    
-    // Zwolnienie zasob贸w IPC
-    if (shm_id != -1) {
-        shmctl(shm_id, IPC_RMID, NULL);
-        printf("[Manager] Pamiec dzielona usunieta\n");
-    }
-    if (sem_id != -1) {
-        semctl(sem_id, 0, IPC_RMID);
-        printf("[Manager] Semafory usuniete\n");
-    }
-    if (msg_id != -1) {
-        msgctl(msg_id, IPC_RMID, NULL);
-        printf("[Manager] Kolejka komunikatow usunieta\n");
-    }
-    
-    printf(K_RED "[Manager] Zasoby zwolnione.\n" K_RESET);
-    exit(0);
+void cleanup() {
+    if (pid_kucharz > 0) kill(pid_kucharz, SIGTERM);
+    if (pid_obsluga > 0) kill(pid_obsluga, SIGTERM);
+    while (wait(NULL) > 0);
+    if (adres) shmdt(adres);
+    if (shmid != -1) shmctl(shmid, IPC_RMID, NULL);
+    if (semid != -1) semctl(semid, 0, IPC_RMID);
+    if (msgid != -1) msgctl(msgid, IPC_RMID, NULL);
+    printf(K_RED "\n[MANAGER] Koniec symulacji.\n" K_RESET);
 }
 
-void handler_ewakuacji(int sig) {
-    if (adres_restauracji) {
-        adres_restauracji->czy_ewakuacja = 1;
-        printf(K_RED "\n\n!!! EWAKUACJA - SYGNA艁 3 !!!\n\n" K_RESET);
-        
-        // Obudzenie wszystkich czekaj膮cych
-        if (sem_id != -1) {
-            sem_op_val(sem_id, SEM_BAR_START, 1000);
-        }
-    }
-    sprzatanie();
+void handler_sigint(int sig) {
+    if (adres) adres->czy_ewakuacja = 1;
+    for (int i = 1; i < LICZBA_SEMAFOROW; i++) sem_op(semid, i, 1000);
+    printf(K_RED "\n[MANAGER] EWAKUACJA!\n" K_RESET);
+    cleanup();
+    exit(0);
 }
 
 int main() {
     setbuf(stdout, NULL);
+    FILE* fp = fopen(PLIK_RAPORTU, "w");
+    if (fp) { fprintf(fp, "=== RAPORT ===\n\n"); fclose(fp); }
+
+    signal(SIGINT, handler_sigint);
     srand(time(NULL));
+
+    key_t klucz = ftok(".", ID_PROJEKT);
+    shmid = shmget(klucz, sizeof(Restauracja), IPC_CREAT | 0600);
+    semid = semget(klucz, LICZBA_SEMAFOROW, IPC_CREAT | 0600);
+    msgid = msgget(klucz, IPC_CREAT | 0600);
+
+    if (shmid == -1 || semid == -1 || msgid == -1) { perror("IPC"); exit(1); }
+    adres = (Restauracja*)shmat(shmid, NULL, 0);
+
+    adres->czy_otwarte = 1; adres->czy_wejscie_zamkniete = 0;
+    adres->czy_ewakuacja = 0; adres->utarg_kasa = 0;
+
+    // Ta渕a (jedzenie) - rozmiar MAX_TASMA 
+    for (int i = 0; i < MAX_TASMA; i++) {
+        adres->tasma[i].typ = 0;
+    }
+    // Stoliki (ludzie) - rozmiar MAX_MIEJSC 
+    for (int i = 0; i < MAX_MIEJSC; i++) {
+        adres->stol_zajetosc[i] = 0;
+        adres->stol_typ_grupy[i] = 0;
+        adres->stol_is_vip[i] = 0;
+    }
+    for (int i = 0; i < 5; i++) { adres->waiting_vip[i] = 0; adres->waiting_std[i] = 0; }
+    for (int i = 0; i < 7; i++) { adres->stat_wyprodukowane[i] = 0; adres->stat_sprzedane[i] = 0; }
+
+    int global_idx = 0, table_id = 0;
+
+    //Inicjalizacja stolikow i lady
+    for (int i = 0; i < ILE_LADA; i++) {
+        adres->stol_id[global_idx++] = table_id;
+        adres->stol_pojemnosc[table_id++] = 1;
+    }
     
+    for (int i = 0; i < ILE_X1; i++) {
+        adres->stol_id[global_idx++] = table_id;
+        adres->stol_pojemnosc[table_id++] = 1;
+    }
     
-    signal(SIGTERM, SIG_IGN);
-    signal(SIGINT, handler_ewakuacji); // Ctrl+C = sygna艂 3 = ewakuacja
+    for (int i = 0; i < ILE_X2; i++) {
+        for (int k = 0; k < 2; k++) adres->stol_id[global_idx++] = table_id;
+        adres->stol_pojemnosc[table_id++] = 2;
+    }
     
-    // Czyszczenie raportu
-    FILE* fp = fopen(PLIK_RAPORT, "w");
-    if(fp) { 
-        fprintf(fp, "========== RAPORT RESTAURACJI ==========\n"); 
-        fclose(fp); 
+    for (int i = 0; i < ILE_X3; i++) {
+        for (int k = 0; k < 3; k++) adres->stol_id[global_idx++] = table_id;
+        adres->stol_pojemnosc[table_id++] = 3;
+    }
+    
+    for (int i = 0; i < ILE_X4; i++) {
+        for (int k = 0; k < 4; k++) adres->stol_id[global_idx++] = table_id;
+        adres->stol_pojemnosc[table_id++] = 4;
     }
 
-    // Inicjalizacja IPC
-    key_t k = ftok(".", ID_PROJEKT);
-    shm_id = shmget(k, sizeof(Restauracja), IPC_CREAT | 0600);
-    sem_id = semget(k, ILOSC_SEM, IPC_CREAT | 0600);
-    msg_id = msgget(ftok(".", ID_KOLEJKA), IPC_CREAT | 0600);
-    
-    if (shm_id == -1 || sem_id == -1 || msg_id == -1) { 
-        perror("Blad IPC (uzyj: ipcrm -a)"); 
-        exit(1); 
-    }
-    
-    adres_restauracji = (Restauracja*)shmat(shm_id, NULL, 0);
+    // Init Semafory
+    semctl(semid, SEM_ACCESS, SETVAL, 1);
+    for (int i = 1; i < LICZBA_SEMAFOROW; i++) semctl(semid, i, SETVAL, 0);
 
-    // Inicjalizacja pami臋ci
-    adres_restauracji->czy_otwarte = 1;
-    adres_restauracji->czy_ewakuacja = 0;
-    adres_restauracji->liczba_aktywnych_grup = 0;
-    adres_restauracji->utarg = 0;
-    adres_restauracji->straty = 0;
-    adres_restauracji->kucharz_speed = 0;
-    
-    for(int i=0; i<MAX_TASMA; i++) { 
-        adres_restauracji->tasma[i].rodzaj = 0; 
-        adres_restauracji->tasma[i].rezerwacja_dla = 0; 
-    }
-    
-    for(int i=0; i<MAX_LICZBA_STOLIKOW; i++) {
-        adres_restauracji->stoly[i] = 0;
-    }
-    
-    for(int i=0; i<7; i++) { 
-        adres_restauracji->stat_sprzedane[i] = 0; 
-        adres_restauracji->stat_wyprodukowane[i] = 0; 
-    }
-    
-    for(int i=0; i<MAX_ZAMOWIEN; i++) {
-        adres_restauracji->tablet[i].pid_klienta = 0;
-        adres_restauracji->tablet[i].typ_dania = 0;
-    }
+    printf(K_RED "[MANAGER] Start. Miejsc: %d, Tasma: %d (Modulo Mode).\\n" K_RESET, MAX_MIEJSC, MAX_TASMA);
 
-    // Inicjalizacja semafor贸w
-    semctl(sem_id, SEM_BLOKADA, SETVAL, 1);
-    semctl(sem_id, SEM_BAR_START, SETVAL, 0);
-    semctl(sem_id, SEM_BAR_STOP, SETVAL, 0);
-    semctl(sem_id, SEM_LADA, SETVAL, ILOSC_MIEJSC_LADA);
-    semctl(sem_id, SEM_STOL_1, SETVAL, ILOSC_1_OS);
-    semctl(sem_id, SEM_STOL_2, SETVAL, ILOSC_2_OS);
-    semctl(sem_id, SEM_STOL_3, SETVAL, ILOSC_3_OS);
-    semctl(sem_id, SEM_STOL_4, SETVAL, ILOSC_4_OS);
+    if ((pid_kucharz = fork()) == 0) { execl("./kucharz", "kucharz", NULL); exit(1); }
+    if ((pid_obsluga = fork()) == 0) { execl("./obsluga", "obsluga", NULL); exit(1); }
 
-    // Uruchomienie proces贸w
-    if((pid_kucharza = fork()) == 0) { 
-        execl("./kucharz", "kucharz", NULL); 
-        perror("Blad execl kucharz");
-        exit(1); 
-    }
-    
-    if((pid_obslugi = fork()) == 0) { 
-        execl("./obsluga", "obsluga", NULL); 
-        perror("Blad execl obsluga");
-        exit(1); 
-    }
-    
-    if((pid_kierownika = fork()) == 0) { 
-        char buf[20];
-        sprintf(buf, "%d", pid_kucharza);
-        execl("./kierownik", "kierownik", buf, NULL); 
-        perror("Blad execl kierownik");
-        exit(1); 
-    }
-    
-    //usleep(100000);
-
-    printf(K_RED "========================================\n" K_RESET);
-    printf(K_RED "RESTAURACJA OTWARTA\n" K_RESET);
-    printf(K_RED "Czas: %ds | Max procesow: %d\n" K_RESET, CZAS_OTWARCIA, MAX_W_LOKALU);
-    printf(K_RED "Miejsca: Lada=%d, 1os=%d, 2os=%d, 3os=%d, 4os=%d\n" K_RESET, 
-           ILOSC_MIEJSC_LADA, ILOSC_1_OS, ILOSC_2_OS, ILOSC_3_OS, ILOSC_4_OS);
-    printf(K_RED "PID: Kucharz=%d, Obsluga=%d, Kierownik=%d\n" K_RESET,
-           pid_kucharza, pid_obslugi, pid_kierownika);
-    printf(K_RED "========================================\n" K_RESET);
-
-    int wygenerowani = 0;
     time_t start = time(NULL);
-    time_t koniec = start + CZAS_OTWARCIA;
+    int wygenerowani = 0, aktywni = 0;
 
-    // Generowanie klient贸w
-    int DEBUG_counter = 0;
-    while (time(NULL) < koniec && !adres_restauracji->czy_ewakuacja) {
-        // Czyszczenie zombie (teraz dzia艂a bo nie ma SIG_IGN)
-        int zombie_count = 0;
-        while (waitpid(-1, NULL, WNOHANG) > 0) {
-            zombie_count++;
-        }
-        
-        if (zombie_count > 0 && DEBUG_counter % 10 == 0) {
-            sem_p(sem_id, SEM_BLOKADA);
-            int aktualni = adres_restauracji->liczba_aktywnych_grup;
-            sem_v(sem_id, SEM_BLOKADA);
-            printf(K_RED "[Manager] DEBUG: Posprzatano %d zombie, aktywnych grup: %d\n" K_RESET,
-                   zombie_count, aktualni);
-        }
+    while (time(NULL) - start < CZAS_OTWARCIA && !adres->czy_ewakuacja && wygenerowani < LIMIT_KLIENTOW) {
+        int status;
+        while (waitpid(-1, &status, WNOHANG) > 0) aktywni--;
 
-        if (wygenerowani < MAX_W_LOKALU && (rand() % 100 < 70)) { // 70% szans na klienta
-            // Generuj klienta
-            if(fork() == 0) {
-                char s_osob[10], s_vip[10];
-                int ile_osob = 1 + (rand() % 4); // 1-4 osoby
-                int vip = (rand() % 100 < 2); // 2% VIP
-                
-                sprintf(s_osob, "%d", ile_osob); 
-                sprintf(s_vip, "%d", vip); 
-                
-                execl("./klient", "klient", s_osob, s_vip, NULL);
-                perror("Blad execl klient");
+        if ((rand() % 100) < 40) {
+            if (fork() == 0) {
+                char arg_ile[5], arg_vip[2];
+                sprintf(arg_ile, "%d", (rand() % 4) + 1);
+                sprintf(arg_vip, "%d", (rand() % 100 < 5));
+                execl("./klient", "klient", arg_ile, arg_vip, NULL);
                 exit(1);
             }
-            wygenerowani++;
-            
-            DEBUG_counter++;
-            if (DEBUG_counter % 10 == 0) {
-                sem_p(sem_id, SEM_BLOKADA);
-                int aktualni = adres_restauracji->liczba_aktywnych_grup;
-                sem_v(sem_id, SEM_BLOKADA);
-                printf(K_RED "[Manager] DEBUG: Wpuszczono %d grup, w lokalu: %d\n" K_RESET, 
-                       wygenerowani, aktualni);
+            wygenerowani++; aktywni++;
+        }
+    }
+
+    printf(K_RED "\n[MANAGER] Koniec wpuszczania. Czekam na %d.\n" K_RESET, aktywni);
+    adres->czy_wejscie_zamkniete = 1;
+
+    // Pr骲a obudzenia wszystkich (na wszelki wypadek)
+    for (int t = 0; t < 5; t++) {
+        if (adres->waiting_vip[t] > 0) sem_op(semid, SEM_Q_VIP_LADA + t, 1);
+        if (adres->waiting_std[t] > 0) sem_op(semid, SEM_Q_STD_LADA + t, 1);
+    }
+
+    while (aktywni > 0) {
+        pid_t p = wait(NULL);
+        if (p > 0) {
+            if (p != pid_kucharz && p != pid_obsluga) {
+                aktywni--;
+                if (aktywni % 10 == 0) printf(K_YELLOW "." K_RESET);
             }
         }
-        
-        
-        BUSY_WAIT(1000000);
+        else if (errno == ECHILD) break;
     }
 
-    printf(K_RED "\n[Manager] KONIEC CZASU. Drzwi zamkniete.\n" K_RESET);
-    printf(K_RED "[Manager] Wpuszczono: %d grup\n" K_RESET, wygenerowani);
-    
-    adres_restauracji->czy_otwarte = 0;
+    printf(K_RED "\n[MANAGER] Pusto. Raport.\n" K_RESET);
+    adres->czy_otwarte = 0;
 
-    
-    printf(K_RED "[Manager] Czekam na obsluze wszystkich klientow...\n" K_RESET);
-    
-    int ostatnia_wartosc = -1;
-    while (1) {
-        sem_p(sem_id, SEM_BLOKADA);
-        int aktualni = adres_restauracji->liczba_aktywnych_grup;
-        sem_v(sem_id, SEM_BLOKADA);
-        
-        if (aktualni != ostatnia_wartosc) {
-            printf(K_RED "[Manager] Pozostalo grup: %d\n" K_RESET, aktualni);
-            ostatnia_wartosc = aktualni;
-        }
-        
-        if (aktualni <= 0) break;
-        
-        
-        BUSY_WAIT(1000000);
-    }
+    //   for(volatile long k=0; k<50000000; k++);
 
-    printf(K_RED "[Manager] Wszyscy klienci obsluzeni i wyszli.\n" K_RESET);
-    
-    
-    BUSY_WAIT(2000000);
-    
-    // Wyczy艣膰 wszystkie pozosta艂e zombie
-    while (waitpid(-1, NULL, WNOHANG) > 0);
+    printf("\n=== PODSUMOWANIE ===\n");
+    int cennik[] = { 0, CENA_STD_1, CENA_STD_2, CENA_STD_3, CENA_SPC_1, CENA_SPC_2, CENA_SPC_3 };
+    for (int i = 1; i <= 6; i++) printf("Typ %d: %d szt.\n", i, adres->stat_sprzedane[i]);
+    printf("UTARG: %ld zl\n", adres->utarg_kasa);
 
-    
-    adres_restauracji->czy_ewakuacja = 1;
-    sem_op_val(sem_id, SEM_BAR_START, 100);
-
-    // Raport ko艅cowy
-    printf("\n");
-    printf(K_RED "========== RAPORT KONCOWY ==========\n" K_RESET);
-    printf(K_RED "Wpuszczono grup: %d\n" K_RESET, wygenerowani);
-    printf(K_RED "Utarg: %d zl\n" K_RESET, adres_restauracji->utarg);
-    printf(K_RED "Straty: %d zl\n" K_RESET, adres_restauracji->straty);
-    
-    printf(K_RED "\nSprzedane dania:\n" K_RESET);
-    int suma_sprzedaz = 0;
-    for(int i=1; i<=6; i++) {
-        if (adres_restauracji->stat_sprzedane[i] > 0) {
-            int wartosc = adres_restauracji->stat_sprzedane[i] * pobierz_cene(i);
-            printf(K_RED " - Typ %d: %d szt (%d zl)\n" K_RESET, 
-                   i, adres_restauracji->stat_sprzedane[i], wartosc);
-            suma_sprzedaz += wartosc;
-        }
-    }
-    printf(K_RED "Suma sprzedazy: %d zl\n" K_RESET, suma_sprzedaz);
-    
-    printf(K_RED "\nWyprodukowane dania:\n" K_RESET);
-    int suma_produkcja = 0;
-    for(int i=1; i<=6; i++) {
-        if (adres_restauracji->stat_wyprodukowane[i] > 0) {
-            int wartosc = adres_restauracji->stat_wyprodukowane[i] * pobierz_cene(i);
-            printf(K_RED " - Typ %d: %d szt (%d zl)\n" K_RESET, 
-                   i, adres_restauracji->stat_wyprodukowane[i], wartosc);
-            suma_produkcja += wartosc;
-        }
-    }
-    printf(K_RED "Suma produkcji: %d zl\n" K_RESET, suma_produkcja);
-    printf(K_RED "====================================\n" K_RESET);
-
-    sprzatanie();
+    cleanup();
     return 0;
 }
