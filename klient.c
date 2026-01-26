@@ -123,13 +123,23 @@ void* zachowanie_klienta(void* arg) {
 }
 
 int main(int argc, char* argv[]) {
-    setbuf(stdout, NULL);
-    if (argc < 3) return 1;
-    pid_grupy = getpid();
-    ilosc_osob = atoi(argv[1]);
-    czy_vip = atoi(argv[2]);
     srand(time(NULL) ^ getpid());
-    cel_do_zjedzenia = ilosc_osob * (3 + (rand() % 3));
+    setbuf(stdout, NULL);
+    //if (argc < 3) return 1;
+    pid_grupy = getpid();
+
+    ilosc_osob = 1 + (rand() % 4);
+    int dorosli = 1 + (rand() % ilosc_osob);
+    int dzieci = ilosc_osob - dorosli;
+
+    czy_vip = (rand() % 100 < 2);
+    //ilosc_osob = atoi(argv[1]);
+    //czy_vip = atoi(argv[2]);
+    cel_do_zjedzenia = ilosc_osob * (3 + (rand() % 8));
+    
+
+    
+
 
     key_t klucz = ftok(".", ID_PROJEKT);
     int shmid = shmget(klucz, sizeof(Restauracja), 0600);
@@ -185,11 +195,28 @@ int main(int argc, char* argv[]) {
     }
 
     pthread_t watki[4];
-    for (int i = 0; i < ilosc_osob; i++) {
+    /*for (int i = 0; i < ilosc_osob; i++) {
         DaneKlienta* d = malloc(sizeof(DaneKlienta));
         d->id = i + 1; d->wiek = 20;
         pthread_create(&watki[i], NULL, zachowanie_klienta, d);
+    }*/
+    int current_idx = 0;
+    for (int i = 0; i < dorosli; i++) {
+        DaneKlienta* d = malloc(sizeof(DaneKlienta));
+        d->id = current_idx + 1;
+        d->wiek = 11 + (rand() % 80);
+        pthread_create(&watki[current_idx], NULL, zachowanie_klienta, d);
+        current_idx++;
     }
+
+    for (int i = 0; i < dzieci; i++) {
+        DaneKlienta* d = malloc(sizeof(DaneKlienta));
+        d->id = current_idx + 1;
+        d->wiek = 1 + (rand() % 10); 
+        pthread_create(&watki[current_idx], NULL, zachowanie_klienta, d);
+        current_idx++;
+    }
+
     for (int i = 0; i < ilosc_osob; i++) pthread_join(watki[i], NULL);
 
     // P£ATNOŒÆ

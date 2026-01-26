@@ -101,10 +101,11 @@ int main() {
 
         if ((rand() % 100) < 40) {
             if (fork() == 0) {
-                char arg_ile[5], arg_vip[2];
-                sprintf(arg_ile, "%d", (rand() % 4) + 1);
-                sprintf(arg_vip, "%d", (rand() % 100 < 5));
-                execl("./klient", "klient", arg_ile, arg_vip, NULL);
+                //char arg_ile[5], arg_vip[2];
+                //sprintf(arg_ile, "%d", (rand() % 4) + 1);
+                //sprintf(arg_vip, "%d", (rand() % 100 < 5));
+                //execl("./klient", "klient", arg_ile, arg_vip, NULL);
+                execl("./klient", "klient", NULL);
                 exit(1);
             }
             wygenerowani++; aktywni++;
