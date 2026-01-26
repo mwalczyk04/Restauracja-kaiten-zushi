@@ -25,6 +25,7 @@
 #define LIMIT_KLIENTOW 10000
 #define CZAS_OTWARCIA 30
 #define DELAY_BAZA 50000000 
+#define MAX_ZAMOWIEN_W_KOLEJCE 20
 
 // Parametry wielkoœci
 #define MAX_TASMA 30    // Fizyczna d³ugoœæ taœmy (P)
