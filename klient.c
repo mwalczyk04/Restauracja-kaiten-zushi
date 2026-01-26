@@ -133,13 +133,13 @@ int main(int argc, char* argv[]) {
     int dzieci = ilosc_osob - dorosli;
 
     czy_vip = (rand() % 100 < 2);
-    //ilosc_osob = atoi(argv[1]);
-    //czy_vip = atoi(argv[2]);
+    
     cel_do_zjedzenia = ilosc_osob * (3 + (rand() % 8));
     
-
-    
-
+    int wiek_osob[ilosc_osob];
+    int w_idx = 0;
+    for (int i = 0; i < dorosli; i++) wiek_osob[w_idx++] = 11 + (rand() % 80);
+    for (int i = 0; i < dzieci; i++) wiek_osob[w_idx++] = 1 + (rand() % 10);
 
     key_t klucz = ftok(".", ID_PROJEKT);
     int shmid = shmget(klucz, sizeof(Restauracja), 0600);
@@ -167,6 +167,8 @@ int main(int argc, char* argv[]) {
 
     int sem_kolejka = czy_vip ? (SEM_Q_VIP_LADA + typ_miejsca) : (SEM_Q_STD_LADA + typ_miejsca);
 
+    int status_miejsca = 0; // 1=Pusty, 2=Dosiadka
+
     while (1) {
         sem_op(semid, SEM_ACCESS, -1);
         int stat = znajdz_miejsce(start, end);
@@ -185,8 +187,26 @@ int main(int argc, char* argv[]) {
         if (adres->czy_ewakuacja) return 0;
     }
 
+    char wiek_str[128] = "";
+    char temp[16];
+    for (int i = 0; i < ilosc_osob; i++) {
+        sprintf(temp, "%d ", wiek_osob[i]);
+        strcat(wiek_str, temp);
+    }
+
     char* kolor = czy_vip ? K_YELLOW : K_CYAN;
-    printf("%s[%s %d] SIADA ID %d (Cel: %d)\n" K_RESET,
+
+    if (status_miejsca == 2) {
+        // DOSIADKA
+        printf("%s[%s %d] DOSIADA SIE do ID %d (Cel: %d) | Wiek: %s\n" K_RESET,
+            kolor, czy_vip ? "VIP" : "GRUPA", pid_grupy, moje_table_id, cel_do_zjedzenia, wiek_str);
+    }
+    else {
+        // PUSTY STOLIK
+        printf("%s[%s %d] SIADA (Pusty) ID %d (Cel: %d) | Wiek: %s\n" K_RESET,
+            kolor, czy_vip ? "VIP" : "GRUPA", pid_grupy, moje_table_id, cel_do_zjedzenia, wiek_str);
+    }
+
         kolor, czy_vip ? "VIP" : "GRUPA", pid_grupy, moje_table_id, cel_do_zjedzenia);
 
     if ((rand() % 100) < 50) {
@@ -196,22 +216,14 @@ int main(int argc, char* argv[]) {
 
     pthread_t watki[4];
     
-    int current_idx = 0;
-    for (int i = 0; i < dorosli; i++) {
+   
+    for (int i = 0; i < ilosc_osob; i++) {
         DaneKlienta* d = malloc(sizeof(DaneKlienta));
-        d->id = current_idx + 1;
-        d->wiek = 11 + (rand() % 80);
-        pthread_create(&watki[current_idx], NULL, zachowanie_klienta, d);
-        current_idx++;
+        d->id = i + 1;
+        d->wiek = wiek_osob[i];
+        pthread_create(&watki[i], NULL, zachowanie_klienta, d);
     }
 
-    for (int i = 0; i < dzieci; i++) {
-        DaneKlienta* d = malloc(sizeof(DaneKlienta));
-        d->id = current_idx + 1;
-        d->wiek = 1 + (rand() % 10); 
-        pthread_create(&watki[current_idx], NULL, zachowanie_klienta, d);
-        current_idx++;
-    }
 
     for (int i = 0; i < ilosc_osob; i++) pthread_join(watki[i], NULL);
 

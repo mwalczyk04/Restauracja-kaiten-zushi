@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdarg.h>
+#include <string.h>
 
 // --- KONFIGURACJA ---
 #define ID_PROJEKT 'M' 
