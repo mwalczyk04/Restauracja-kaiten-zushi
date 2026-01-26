@@ -195,11 +195,7 @@ int main(int argc, char* argv[]) {
     }
 
     pthread_t watki[4];
-    /*for (int i = 0; i < ilosc_osob; i++) {
-        DaneKlienta* d = malloc(sizeof(DaneKlienta));
-        d->id = i + 1; d->wiek = 20;
-        pthread_create(&watki[i], NULL, zachowanie_klienta, d);
-    }*/
+    
     int current_idx = 0;
     for (int i = 0; i < dorosli; i++) {
         DaneKlienta* d = malloc(sizeof(DaneKlienta));

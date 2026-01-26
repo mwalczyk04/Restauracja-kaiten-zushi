@@ -132,6 +132,12 @@ int main() {
         else if (errno == ECHILD) break;
     }
 
+    struct msqid_ds buf;
+    do {
+        msgctl(msgid, IPC_STAT, &buf);
+       
+    } while (buf.msg_qnum > 0);
+
     printf(K_RED "\n[MANAGER] Pusto. Raport.\n" K_RESET);
     adres->czy_otwarte = 0;
 
@@ -139,15 +145,15 @@ int main() {
 
     //   for(volatile long k=0; k<50000000; k++);
 
-    int ceny[] = { CENA_STD_1, CENA_STD_2, CENA_STD_3, CENA_SPC_1, CENA_SPC_2, CENA_SPC_3 };
+    int ceny[] = { 0,CENA_STD_1, CENA_STD_2, CENA_STD_3, CENA_SPC_1, CENA_SPC_2, CENA_SPC_3 };
     
     printf(K_MAGENTA"\n--- RAPORT KUCHARZ (PRODUKCJA) ---\n");
     long suma_produkcji = 0;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 1; i < 7; i++) {
         int ilosc = adres->stat_wyprodukowane[i];
         int wartosc = ilosc * ceny[i];
         suma_produkcji += wartosc;
-        printf("Typ %d: %4d szt. x %2d zl = %5d zl\n", i + 1, ilosc, ceny[i], wartosc);
+        printf("Typ %d: %4d szt. x %2d zl = %5d zl\n", i, ilosc, ceny[i], wartosc);
     }
     printf("LACZNA WARTOSC PRODUKCJI: %ld zl\n"K_RESET, suma_produkcji);
 
@@ -157,7 +163,7 @@ int main() {
         int ilosc = adres->stat_sprzedane[i];
         int wartosc = ilosc * ceny[i];
         suma_sprzedazy += wartosc;
-        printf("Typ %d: %4d szt. x %2d zl = %5d zl\n", i + 1, ilosc, ceny[i], wartosc);
+        printf("Typ %d: %4d szt. x %2d zl = %5d zl\n", i, ilosc, ceny[i], wartosc);
     }
     printf("LACZNA WARTOSC SPRZEDAZY: %ld zl\n", suma_sprzedazy);
     printf("STAN KASY (UTARG):        %ld zl\n", adres->utarg_kasa);
