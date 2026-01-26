@@ -155,12 +155,13 @@ int main(int argc, char* argv[]) {
     int off_x4 = off_x3 + (ILE_X3 * 3), max_idx = off_x4 + (ILE_X4 * 4);
 
     if (ilosc_osob == 1) {
-        if (!czy_vip && (rand() % 2)) { typ_miejsca = T_LADA; start = off_lada; end = off_x1; }
+        if (!czy_vip && (rand() % 100 < 40)) { typ_miejsca = T_X2; start = off_x2; end = off_x3;}
+        else if (!czy_vip && (rand() % 2)) { typ_miejsca = T_LADA; start = off_lada; end = off_x1; }
         else { typ_miejsca = T_X1; start = off_x1; end = off_x2; }
     }
     else if (ilosc_osob == 2) {
-        if (rand() % 2) { typ_miejsca = T_X2; start = off_x2; end = off_x3; }
-        else { typ_miejsca = T_X4; start = off_x4; end = max_idx; }
+        if (rand() % 100 < 50) { typ_miejsca = T_X4; start = off_x4; end = max_idx;}
+        else { typ_miejsca = T_X2; start = off_x2; end = off_x3;}
     }
     else if (ilosc_osob == 3) { typ_miejsca = T_X3; start = off_x3; end = off_x4; }
     else { typ_miejsca = T_X4; start = off_x4; end = max_idx; }
@@ -207,7 +208,6 @@ int main(int argc, char* argv[]) {
             kolor, czy_vip ? "VIP" : "GRUPA", pid_grupy, moje_table_id, cel_do_zjedzenia, wiek_str);
     }
 
-        kolor, czy_vip ? "VIP" : "GRUPA", pid_grupy, moje_table_id, cel_do_zjedzenia);
 
     if ((rand() % 100) < 50) {
         MsgZamowienie zam = { TYP_ZAMOWIENIE, pid_grupy, 4 + (rand() % 3) };
