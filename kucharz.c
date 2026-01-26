@@ -11,7 +11,7 @@ int main() {
     int msgid = msgget(klucz, 0600);
     adres_global = (Restauracja*)shmat(shmid, NULL, 0);
 
-    printf(K_MAGENTA "[KUCHARZ] Ready.\n" K_RESET);
+    printf(K_MAGENTA "[KUCHARZ] Gotowy.\n" K_RESET);
 
     while (adres_global->czy_otwarte && !adres_global->czy_ewakuacja) {
         sem_op(semid, SEM_ACCESS, -1);
@@ -28,7 +28,7 @@ int main() {
                 MsgZamowienie zam;
                 if (msgrcv(msgid, &zam, sizeof(MsgZamowienie) - sizeof(long), TYP_ZAMOWIENIE, IPC_NOWAIT) != -1) {
                     typ = zam.typ_dania; pid = zam.pid_grupy;
-                    printf(K_MAGENTA "[KUCHARZ] Specjal %d\n" K_RESET, typ);
+                    printf(K_MAGENTA "[KUCHARZ] Specjal %d dla %d\n " K_RESET, typ,pid);
                 }
                 else {
                     typ = (rand() % 3) + 1;
@@ -52,8 +52,8 @@ int main() {
         sem_op(semid, SEM_ACCESS, 1);
 
         long delay = DELAY_BAZA;
-        if (adres_global->kucharz_speed == 1) delay /= 4;
-        if (adres_global->kucharz_speed == 2) delay *= 4;
+        if (adres_global->kucharz_speed == 1) delay /= 2;
+        if (adres_global->kucharz_speed == 2) delay *= 2;
         // for(volatile long k=0; k<delay; k++);
     }
     shmdt(adres_global);

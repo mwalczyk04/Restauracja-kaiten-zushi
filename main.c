@@ -87,7 +87,7 @@ int main() {
     semctl(semid, SEM_ACCESS, SETVAL, 1);
     for (int i = 1; i < LICZBA_SEMAFOROW; i++) semctl(semid, i, SETVAL, 0);
 
-    printf(K_RED "[MANAGER] Start. Miejsc: %d, Tasma: %d (Modulo Mode).\\n" K_RESET, MAX_MIEJSC, MAX_TASMA);
+    printf(K_RED "[MANAGER] Start. Miejsc: %d, Tasma: %d \n" K_RESET, MAX_MIEJSC, MAX_TASMA);
 
     if ((pid_kucharz = fork()) == 0) { execl("./kucharz", "kucharz", NULL); exit(1); }
     if ((pid_obsluga = fork()) == 0) { execl("./obsluga", "obsluga", NULL); exit(1); }
@@ -135,12 +135,51 @@ int main() {
     printf(K_RED "\n[MANAGER] Pusto. Raport.\n" K_RESET);
     adres->czy_otwarte = 0;
 
+    printf(K_RED"\n== RAPORT KONCOWY DNIA ===\n"K_RESET);
+
     //   for(volatile long k=0; k<50000000; k++);
 
-    printf("\n=== PODSUMOWANIE ===\n");
-    int cennik[] = { 0, CENA_STD_1, CENA_STD_2, CENA_STD_3, CENA_SPC_1, CENA_SPC_2, CENA_SPC_3 };
-    for (int i = 1; i <= 6; i++) printf("Typ %d: %d szt.\n", i, adres->stat_sprzedane[i]);
-    printf("UTARG: %ld zl\n", adres->utarg_kasa);
+    int ceny[] = { CENA_STD_1, CENA_STD_2, CENA_STD_3, CENA_SPC_1, CENA_SPC_2, CENA_SPC_3 };
+    
+    printf(K_MAGENTA"\n--- RAPORT KUCHARZ (PRODUKCJA) ---\n");
+    long suma_produkcji = 0;
+    for (int i = 0; i < 6; i++) {
+        int ilosc = adres->stat_wyprodukowane[i];
+        int wartosc = ilosc * ceny[i];
+        suma_produkcji += wartosc;
+        printf("Typ %d: %4d szt. x %2d zl = %5d zl\n", i + 1, ilosc, ceny[i], wartosc);
+    }
+    printf("LACZNA WARTOSC PRODUKCJI: %ld zl\n"K_RESET, suma_produkcji);
+
+    printf(K_GREEN"\n--- RAPORT OBSLUGA (SPRZEDAZ) ---\n");
+    long suma_sprzedazy = 0;
+    for (int i = 1; i < 7; i++) {
+        int ilosc = adres->stat_sprzedane[i];
+        int wartosc = ilosc * ceny[i];
+        suma_sprzedazy += wartosc;
+        printf("Typ %d: %4d szt. x %2d zl = %5d zl\n", i + 1, ilosc, ceny[i], wartosc);
+    }
+    printf("LACZNA WARTOSC SPRZEDAZY: %ld zl\n", suma_sprzedazy);
+    printf("STAN KASY (UTARG):        %ld zl\n", adres->utarg_kasa);
+
+    printf("\n--- ZAWARTOSC TASMY (STRATY) ---\n");
+    long straty = 0;
+    int znaleziono = 0;
+    for (int i = 0; i < MAX_TASMA; i++) {
+        if (adres->tasma[i].typ != 0) {
+            printf("Slot %2d: Danie Typ %d (%d zl)\n", i, adres->tasma[i].typ, adres->tasma[i].cena);
+            straty += adres->tasma[i].cena;
+            znaleziono = 1;
+        }
+    }
+
+    if (!znaleziono) {
+        printf("Tasma pusta, brak strat.\n");
+    }
+    else {
+        printf("LACZNE STRATY: %ld zl\n", straty);
+    }
+    printf("=============================\n"K_RESET);
 
     cleanup();
     return 0;

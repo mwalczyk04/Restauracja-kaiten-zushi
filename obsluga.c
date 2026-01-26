@@ -40,9 +40,9 @@ int main() {
         // for(volatile long k=0; k<delay; k++);
     }
 
-    long w = 0;
-    for (int i = 0; i < MAX_TASMA; i++) if (adres->tasma[i].typ) w += adres->tasma[i].cena;
-    printf(K_GREEN "\n[OBSLUGA] Koniec. Zmarnowano: %ld zl\n" K_RESET, w);
+    //long w = 0;
+    //for (int i = 0; i < MAX_TASMA; i++) if (adres->tasma[i].typ) w += adres->tasma[i].cena;
+    //printf(K_GREEN "\n[OBSLUGA] Koniec. Zmarnowano: %ld zl\n" K_RESET, w);
     shmdt(adres);
     return 0;
 }
