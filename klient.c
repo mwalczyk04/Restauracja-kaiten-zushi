@@ -30,23 +30,24 @@ void sprobuj_obudzic_kolejnego() {
         }
     }
 }
-
 int znajdz_miejsce(int start, int end) {
-    int current_tid = -1;
+    int range = end - start;
+    if (range <= 0) return 0;
+    int offset = rand() % range;
 
-    // 1. VIP (tylko puste)
     if (czy_vip) {
-        for (int i = start; i < end; i++) {
+        for (int k = 0; k < range; k++) {
+            int i = start + ((offset + k) % range);
             int tid = adres->stol_id[i];
-            if (tid == current_tid) continue; current_tid = tid;
 
             if (adres->stol_zajetosc[tid] == 0) {
-                for (int k = i; k < end; k++) {
-                    if (adres->stol_id[k] == tid) {
-                        moj_stolik_idx = k;
+                for (int s = start; s < end; s++) {
+                    if (adres->stol_id[s] == tid) {
+                        moj_stolik_idx = s;
                         break;
                     }
                 }
+
                 moje_table_id = tid;
                 adres->stol_zajetosc[tid] = ilosc_osob;
                 adres->stol_typ_grupy[tid] = ilosc_osob;
@@ -57,45 +58,42 @@ int znajdz_miejsce(int start, int end) {
         return 0;
     }
 
-    // 2. STANDARD - Dosiadka
-    current_tid = -1;
-    for (int i = start; i < end; i++) {
+    for (int k = 0; k < range; k++) {
+        int i = start + ((offset + k) % range); 
         int tid = adres->stol_id[i];
-        if (tid == current_tid) continue; current_tid = tid;
-
         int zaj = adres->stol_zajetosc[tid];
 
         if (zaj > 0 && adres->stol_is_vip[tid] == 0 &&
             (zaj + ilosc_osob <= adres->stol_pojemnosc[tid]) &&
-            (adres->stol_typ_grupy[tid] == ilosc_osob)) { 
-
-            
-            for (int k = i; k < end; k++) {
-                if (adres->stol_id[k] == tid) {
-                    moj_stolik_idx = k + zaj;
+            (adres->stol_typ_grupy[tid] == ilosc_osob)) {
+          
+            int start_stolu = -1;
+            for (int s = start; s < end; s++) {
+                if (adres->stol_id[s] == tid) {
+                    start_stolu = s;
                     break;
                 }
             }
 
+            moj_stolik_idx = start_stolu + zaj;
             moje_table_id = tid;
             adres->stol_zajetosc[tid] += ilosc_osob;
-            return 2;
+            return 2; 
         }
     }
 
-    // 3. STANDARD - Puste
-    current_tid = -1;
-    for (int i = start; i < end; i++) {
+    for (int k = 0; k < range; k++) {
+        int i = start + ((offset + k) % range);
         int tid = adres->stol_id[i];
-        if (tid == current_tid) continue; current_tid = tid;
 
         if (adres->stol_zajetosc[tid] == 0) {
-            for (int k = i; k < end; k++) {
-                if (adres->stol_id[k] == tid) {
-                    moj_stolik_idx = k;
+            for (int s = start; s < end; s++) {
+                if (adres->stol_id[s] == tid) {
+                    moj_stolik_idx = s;
                     break;
                 }
             }
+
             moje_table_id = tid;
             adres->stol_zajetosc[tid] = ilosc_osob;
             adres->stol_typ_grupy[tid] = ilosc_osob;
@@ -104,7 +102,7 @@ int znajdz_miejsce(int start, int end) {
         }
     }
 
-    return 0;
+    return 0; 
 }
 
 void* zachowanie_klienta(void* arg) {
