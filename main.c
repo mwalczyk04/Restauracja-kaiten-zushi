@@ -2,11 +2,12 @@
 
 int shmid = -1, semid = -1, msgid = -1;
 Restauracja* adres = NULL;
-pid_t pid_kucharz = 0, pid_obsluga = 0;
+pid_t pid_kucharz = 0, pid_obsluga = 0, pid_kierownik = 0;
 
 void cleanup() {
     if (pid_kucharz > 0) kill(pid_kucharz, SIGTERM);
     if (pid_obsluga > 0) kill(pid_obsluga, SIGTERM);
+    if (pid_kierownik > 0) kill(pid_kierownik, SIGTERM);
     while (wait(NULL) > 0);
     if (adres) shmdt(adres);
     if (shmid != -1) shmctl(shmid, IPC_RMID, NULL);
@@ -41,6 +42,7 @@ int main() {
 
     adres->czy_otwarte = 1; adres->czy_wejscie_zamkniete = 0;
     adres->czy_ewakuacja = 0; adres->utarg_kasa = 0;
+    adres->kucharz_speed = 0;
 
     // Taœma (jedzenie) - rozmiar MAX_TASMA 
     for (int i = 0; i < MAX_TASMA; i++) {
@@ -92,6 +94,14 @@ int main() {
     if ((pid_kucharz = fork()) == 0) { execl("./kucharz", "kucharz", NULL); exit(1); }
     if ((pid_obsluga = fork()) == 0) { execl("./obsluga", "obsluga", NULL); exit(1); }
 
+    if ((pid_kierownik = fork()) == 0) {
+        char buff[16];
+        sprintf(buff, "%d", pid_kucharz);
+        // Przekazujemy PID kucharza jako argument
+        execl("./kierownik", "kierownik", buff, NULL);
+        exit(1);
+    }
+
     time_t start = time(NULL);
     int wygenerowani = 0, aktywni = 0;
 
@@ -101,10 +111,6 @@ int main() {
 
         if ((rand() % 100) < 40) {
             if (fork() == 0) {
-                //char arg_ile[5], arg_vip[2];
-                //sprintf(arg_ile, "%d", (rand() % 4) + 1);
-                //sprintf(arg_vip, "%d", (rand() % 100 < 5));
-                //execl("./klient", "klient", arg_ile, arg_vip, NULL);
                 execl("./klient", "klient", NULL);
                 exit(1);
             }
@@ -126,7 +132,7 @@ int main() {
         if (p > 0) {
             if (p != pid_kucharz && p != pid_obsluga) {
                 aktywni--;
-                if (aktywni % 10 == 0) printf(K_YELLOW "." K_RESET);
+                //if (aktywni % 10 == 0) printf(K_YELLOW "." K_RESET);
             }
         }
         else if (errno == ECHILD) break;

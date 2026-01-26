@@ -2,9 +2,28 @@
 
 Restauracja* adres_global = NULL;
 
+void handle_signal(int sig) {
+    if (adres_global == NULL) return;
+
+    if (sig == SIGUSR1) {
+        // Sygna³ 1: Przyspiesz 2x (Fast Mode)
+        adres_global->kucharz_speed = 1;
+        printf(K_MAGENTA "\n\n[KUCHARZ] Otrzymalem SYGNAL 1 -> PRZYSPIESZAM!\n\n" K_RESET);
+    }
+    else if (sig == SIGUSR2) {
+        // Sygna³ 2: Zwolnij o 50% (Slow Mode)
+        adres_global->kucharz_speed = 2;
+        printf(K_MAGENTA "\n\n[KUCHARZ] Otrzymalem SYGNAL 2 -> ZWALNIAM!\n\n" K_RESET);
+    }
+}
+
 int main() {
     setbuf(stdout, NULL);
     srand(time(NULL) ^ getpid());
+
+    signal(SIGUSR1, handle_signal);
+    signal(SIGUSR2, handle_signal);
+
     key_t klucz = ftok(".", ID_PROJEKT);
     int shmid = shmget(klucz, sizeof(Restauracja), 0600);
     int semid = semget(klucz, LICZBA_SEMAFOROW, 0600);
