@@ -166,11 +166,20 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < dzieci; i++) wiek_osob[w_idx++] = 1 + (rand() % 10);
 
     key_t klucz = ftok(".", ID_PROJEKT);
+    if (klucz == -1) { perror("Blad ftok (klient)"); exit(1); }
+
     int shmid = shmget(klucz, sizeof(Restauracja), 0600);
+    if (shmid == -1) { perror("Blad shmget (klient)"); exit(1); }
+
     semid = semget(klucz, LICZBA_SEMAFOROW, 0600);
+    if (semid == -1) { perror("Blad semget (klient)"); exit(1); }
+
     msgid = msgget(klucz, 0600);
-    if (shmid == -1) return 1;
+    if (msgid == -1) { perror("Blad msgget (klient)"); exit(1); }
+
+    //if (shmid == -1) return 1;
     adres = (Restauracja*)shmat(shmid, NULL, 0);
+    if (adres == (void*)-1) { perror("Blad shmat (klient)"); exit(1); }
 
     
     int typ_miejsca = T_X4, start = 0, end = 0;
@@ -243,9 +252,14 @@ int main(int argc, char* argv[]) {
     pthread_t watki[4];
     for (int i = 0; i < ilosc_osob; i++) {
         DaneKlienta* d = malloc(sizeof(DaneKlienta));
+        if (!d) { perror("Blad malloc"); exit(1); }
         d->id = i + 1;
         d->wiek = wiek_osob[i];
-        pthread_create(&watki[i], NULL, zachowanie_klienta, d);
+        //pthread_create(&watki[i], NULL, zachowanie_klienta, d);
+        if (pthread_create(&watki[i], NULL, zachowanie_klienta, d) != 0) {
+            perror("Blad pthread_create");
+            free(d);
+        }
     }
 
     for (int i = 0; i < ilosc_osob; i++) pthread_join(watki[i], NULL);

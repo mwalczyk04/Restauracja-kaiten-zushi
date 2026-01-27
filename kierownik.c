@@ -29,6 +29,10 @@ int main(int argc, char** argv) {
     if (argc > 1) {
         pid_kucharza = atoi(argv[1]);
     }
+    else {
+        fprintf(stderr, "Blad: Kierownik potrzebuje PID kucharza!\n");
+        exit(1);
+    }
     
     printf(K_CYAN "[Kierownik] Czuwam nad lokalem (PID=%d, Kucharz=%d)\n" K_RESET, getpid(), pid_kucharza);
     printf(K_CYAN "[Kierownik] Sygnaly: SIGUSR1=przyspiesz, SIGUSR2=zwolnij\n" K_RESET);

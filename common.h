@@ -115,7 +115,9 @@ static inline void sem_op(int semid, int sem_num, int op) {
     while (1) {
         if (semop(semid, &buf, 1) == 0) break;
         if (errno == EINTR) continue;
-        break;
+        perror("Blad sem_op");
+        exit(1);
+        //break;
     }
 }
 
@@ -127,6 +129,7 @@ static inline void raportuj(const char* format, ...) {
     va_end(args);
     FILE* fp = fopen(PLIK_RAPORTU, "a");
     if (fp) { vfprintf(fp, format, args_file); fclose(fp); }
+    else { perror("Blad zapisu raportu"); }
     va_end(args_file);
 }
 #define printf raportuj

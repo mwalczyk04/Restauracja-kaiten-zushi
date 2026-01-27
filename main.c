@@ -18,7 +18,9 @@ void cleanup() {
 
 void handler_sigint(int sig) {
     if (adres) adres->czy_ewakuacja = 1;
-    for (int i = 1; i < LICZBA_SEMAFOROW; i++) sem_op(semid, i, 1000);
+    if (semid != -1) {
+        for (int i = 1; i < LICZBA_SEMAFOROW; i++) sem_op(semid, i, LIMIT_KLIENTOW);
+    }
     printf(K_RED "\n[MANAGER] EWAKUACJA!\n" K_RESET);
     cleanup();
     exit(0);
@@ -28,17 +30,44 @@ int main() {
     setbuf(stdout, NULL);
     FILE* fp = fopen(PLIK_RAPORTU, "w");
     if (fp) { fprintf(fp, "=== RAPORT ===\n\n"); fclose(fp); }
+    else { perror("Blad otwarcia pliku raportu"); exit(1); }
 
     signal(SIGINT, handler_sigint);
     srand(time(NULL));
 
     key_t klucz = ftok(".", ID_PROJEKT);
+    if (klucz == -1) {
+        perror("Blad ftok (main)");
+        exit(1);
+    }
+
     shmid = shmget(klucz, sizeof(Restauracja), IPC_CREAT | 0600);
+    if (shmid == -1) { 
+        perror("Blad shmget (main)");
+        exit(1); 
+    }
+
     semid = semget(klucz, LICZBA_SEMAFOROW, IPC_CREAT | 0600);
+    if (semid == -1) {
+        perror("Blad semget (main)");
+        cleanup();
+        exit(1);
+    }
+
     msgid = msgget(klucz, IPC_CREAT | 0600);
+    if (msgid == -1) {
+        perror("Blad msgget (main)");
+        cleanup();
+        exit(1);
+    }
 
     if (shmid == -1 || semid == -1 || msgid == -1) { perror("IPC"); exit(1); }
     adres = (Restauracja*)shmat(shmid, NULL, 0);
+    if (adres == (void*)-1) {
+        perror("Blad shmat (main)");
+        shmctl(shmid, IPC_RMID, NULL);
+        exit(1);
+    }
 
     adres->czy_otwarte = 1; adres->czy_wejscie_zamkniete = 0;
     adres->czy_ewakuacja = 0; adres->utarg_kasa = 0;
@@ -86,21 +115,40 @@ int main() {
     }
 
     // Init Semafory
-    semctl(semid, SEM_ACCESS, SETVAL, 1);
-    for (int i = 1; i < LICZBA_SEMAFOROW; i++) semctl(semid, i, SETVAL, 0);
-
+    if (semctl(semid, SEM_ACCESS, SETVAL, 1) == -1) {
+        perror("Blad semctl init");
+        cleanup();
+        exit(1);
+    }
+    for (int i = 1; i < LICZBA_SEMAFOROW; i++) {
+        if (semctl(semid, i, SETVAL, 0) == -1) {
+            perror("Blad semctl kolejki");
+            cleanup();
+            exit(1);
+        }
+    }
     printf(K_RED "[MANAGER] Start. Miejsc: %d, Tasma: %d \n" K_RESET, MAX_MIEJSC, MAX_TASMA);
 
-    if ((pid_kucharz = fork()) == 0) { execl("./kucharz", "kucharz", NULL); exit(1); }
-    if ((pid_obsluga = fork()) == 0) { execl("./obsluga", "obsluga", NULL); exit(1); }
+    if ((pid_kucharz = fork()) == 0) { 
+        execl("./kucharz", "kucharz", NULL);
+        perror("Blad execl kucharz"); 
+        exit(1);
+    } else if (pid_kucharz == -1) { perror("Blad fork kucharz"); cleanup(); exit(1); }
+
+    if ((pid_obsluga = fork()) == 0) { 
+        execl("./obsluga", "obsluga", NULL);
+        perror("Blad execl obsluga");
+        exit(1); 
+    } else if (pid_obsluga == -1) { perror("Blad fork obsluga"); cleanup(); exit(1); }
 
     if ((pid_kierownik = fork()) == 0) {
         char buff[16];
+        //Przekazanie pid kucharza
         sprintf(buff, "%d", pid_kucharz);
-        // Przekazujemy PID kucharza jako argument
         execl("./kierownik", "kierownik", buff, NULL);
+        perror("Blad execl kierownik");
         exit(1);
-    }
+    } else if (pid_kierownik == -1) { perror("Blad fork kierownik"); cleanup(); exit(1); }
 
     time_t start = time(NULL);
     int wygenerowani = 0, aktywni = 0;
@@ -110,11 +158,19 @@ int main() {
         while (waitpid(-1, &status, WNOHANG) > 0) aktywni--;
 
         if ((rand() % 100) < 40) {
-            if (fork() == 0) {
+            pid_t pid_klient = fork();
+            if (pid_klient == 0) {
                 execl("./klient", "klient", NULL);
+                perror("Blad execl klient");
                 exit(1);
             }
-            wygenerowani++; aktywni++;
+            else if (pid_klient == -1) {
+                perror("Blad fork klient");
+            }
+            else {
+                wygenerowani++; aktywni++;
+                //wygenerowani++; aktywni++;
+            }
         }
     }
 
@@ -192,7 +248,7 @@ int main() {
         printf("LACZNE STRATY: %ld zl\n", straty);
     }
     printf("=============================\n"K_RESET);
-
+    
     cleanup();
     return 0;
 }

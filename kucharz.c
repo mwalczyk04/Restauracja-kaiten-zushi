@@ -6,12 +6,12 @@ void handle_signal(int sig) {
     if (adres_global == NULL) return;
 
     if (sig == SIGUSR1) {
-        // Sygna³ 1: Przyspiesz 2x (Fast Mode)
+        // Sygna³ 1: Przyspiesz 2x 
         adres_global->kucharz_speed = 1;
         printf(K_MAGENTA "\n\n[KUCHARZ] Otrzymalem SYGNAL 1 -> PRZYSPIESZAM!\n\n" K_RESET);
     }
     else if (sig == SIGUSR2) {
-        // Sygna³ 2: Zwolnij o 50% (Slow Mode)
+        // Sygna³ 2: Zwolnij o 50% 
         adres_global->kucharz_speed = 2;
         printf(K_MAGENTA "\n\n[KUCHARZ] Otrzymalem SYGNAL 2 -> ZWALNIAM!\n\n" K_RESET);
     }
@@ -25,10 +25,19 @@ int main() {
     signal(SIGUSR2, handle_signal);
 
     key_t klucz = ftok(".", ID_PROJEKT);
+    if (klucz == -1) { perror("Blad ftok (kucharz)"); exit(1); }
+
     int shmid = shmget(klucz, sizeof(Restauracja), 0600);
+    if (shmid == -1) { perror("Blad shmget (kucharz)"); exit(1); }
+
     int semid = semget(klucz, LICZBA_SEMAFOROW, 0600);
+    if (semid == -1) { perror("Blad semget (kucharz)"); exit(1); }
+
     int msgid = msgget(klucz, 0600);
+    if (msgid == -1) { perror("Blad msgget (kucharz)"); exit(1); }
+
     adres_global = (Restauracja*)shmat(shmid, NULL, 0);
+    if (adres_global == (void*)-1) { perror("Blad shmat (kucharz)"); exit(1); }
 
     printf(K_MAGENTA "[KUCHARZ] Gotowy.\n" K_RESET);
 
@@ -59,6 +68,7 @@ int main() {
 
             adres_global->tasma[0].typ = typ;
             adres_global->tasma[0].pid_rezerwacji = pid;
+
             if (typ == 1) adres_global->tasma[0].cena = CENA_STD_1;
             else if (typ == 2) adres_global->tasma[0].cena = CENA_STD_2;
             else if (typ == 3) adres_global->tasma[0].cena = CENA_STD_3;

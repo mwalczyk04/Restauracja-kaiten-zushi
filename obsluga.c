@@ -3,10 +3,19 @@
 int main() {
     setbuf(stdout, NULL);
     key_t klucz = ftok(".", ID_PROJEKT);
+    if (klucz == -1) { perror("Blad ftok (obsluga)"); exit(1); }
+
     int shmid = shmget(klucz, sizeof(Restauracja), 0600);
+    if (shmid == -1) { perror("Blad shmget (obsluga)"); exit(1); }
+
     int semid = semget(klucz, LICZBA_SEMAFOROW, 0600);
+    if (semid == -1) { perror("Blad semget (obsluga)"); exit(1); }
+
     int msgid = msgget(klucz, 0600);
+    if (msgid == -1) { perror("Blad msgget (obsluga)"); exit(1); }
+
     Restauracja* adres = (Restauracja*)shmat(shmid, NULL, 0);
+    if (adres == (void*)-1) { perror("Blad shmat (obsluga)"); exit(1); }
 
     printf(K_GREEN "[OBSLUGA] Ready.\n" K_RESET);
 
