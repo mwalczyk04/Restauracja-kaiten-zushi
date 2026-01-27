@@ -5,34 +5,47 @@ Restauracja* adres = NULL;
 pid_t pid_kucharz = 0, pid_obsluga = 0, pid_kierownik = 0;
 
 void cleanup() {
-    if (pid_kucharz > 0) kill(pid_kucharz, SIGTERM);
-    if (pid_obsluga > 0) kill(pid_obsluga, SIGTERM);
-    if (pid_kierownik > 0) kill(pid_kierownik, SIGTERM);
-    while (wait(NULL) > 0);
-    if (adres) shmdt(adres);
+    signal(SIGTERM, SIG_IGN);
+    signal(SIGINT, SIG_IGN);
+
+    if (adres && adres != (void*)-1) shmdt(adres);
     if (shmid != -1) shmctl(shmid, IPC_RMID, NULL);
     if (semid != -1) semctl(semid, 0, IPC_RMID);
     if (msgid != -1) msgctl(msgid, IPC_RMID, NULL);
+    kill(0, SIGTERM);   
+
+    int attempts = LIMIT_KLIENTOW;
+    while (attempts-- > 0) {
+        pid_t p = waitpid(-1, NULL, WNOHANG);
+        if (p > 0) {
+            // Posprz¹tano zombie o PID p
+        }
+        else if (p == -1 && errno == ECHILD) {
+            break; // Nie ma wiêcej dzieci
+        }
+    }
+    
     printf(K_RED "\n[MANAGER] Koniec symulacji.\n" K_RESET);
 }
 
 void handler_sigint(int sig) {
-    if (adres) adres->czy_ewakuacja = 1;
-    if (semid != -1) {
-        for (int i = 1; i < LICZBA_SEMAFOROW; i++) sem_op(semid, i, LIMIT_KLIENTOW);
-    }
-    printf(K_RED "\n[MANAGER] EWAKUACJA!\n" K_RESET);
+    printf(K_RED "\n[MANAGER] Otrzymano SYGNAL (Ewakuacja/Awaria)!\n" K_RESET);
+    if (adres && adres != (void*)-1) adres->czy_ewakuacja = 1;
+
+    // Od razu przechodzimy do sprz¹tania
     cleanup();
     exit(0);
 }
 
 int main() {
     setbuf(stdout, NULL);
+    signal(SIGTERM, SIG_IGN);
+    signal(SIGINT, handler_sigint);
+
     FILE* fp = fopen(PLIK_RAPORTU, "w");
     if (fp) { fprintf(fp, "=== RAPORT ===\n\n"); fclose(fp); }
     else { perror("Blad otwarcia pliku raportu"); exit(1); }
 
-    signal(SIGINT, handler_sigint);
     srand(time(NULL));
 
     key_t klucz = ftok(".", ID_PROJEKT);
@@ -154,26 +167,41 @@ int main() {
     int wygenerowani = 0, aktywni = 0;
 
     while (time(NULL) - start < CZAS_OTWARCIA && !adres->czy_ewakuacja && wygenerowani < LIMIT_KLIENTOW) {
+        
         int status;
-        while (waitpid(-1, &status, WNOHANG) > 0) aktywni--;
+        pid_t ended_pid;
 
+        
+        while ((ended_pid = waitpid(-1, &status, WNOHANG)) > 0) {
+
+            
+            if (ended_pid == pid_kucharz) {
+                printf(K_RED "\n[MANAGER] FATAL: Kucharz padl! Symuluje Ctrl+C!\n" K_RESET);
+                raise(SIGINT);
+            }
+            else if (ended_pid == pid_obsluga) {
+                printf(K_RED "\n[MANAGER] FATAL: Obsluga padla! Symuluje Ctrl+C!\n" K_RESET);
+                raise(SIGINT);
+            }
+            else if (ended_pid == pid_kierownik) {
+                printf(K_RED "\n[MANAGER] Info: Kierownik wyszedl.\n" K_RESET);
+                pid_kierownik = 0;
+            }
+            else {
+                // To by³ klient
+                aktywni--;
+            }
+        }
         if ((rand() % 100) < 40) {
             pid_t pid_klient = fork();
             if (pid_klient == 0) {
-                execl("./klient", "klient", NULL);
-                perror("Blad execl klient");
-                exit(1);
+                execl("./klient", "klient", NULL); perror("Execl klient"); exit(1);
             }
-            else if (pid_klient == -1) {
-                perror("Blad fork klient");
-            }
-            else {
+            else if (pid_klient > 0) {
                 wygenerowani++; aktywni++;
-                //wygenerowani++; aktywni++;
             }
         }
     }
-
     printf(K_RED "\n[MANAGER] Koniec wpuszczania. Czekam na %d.\n" K_RESET, aktywni);
     adres->czy_wejscie_zamkniete = 1;
 
@@ -183,13 +211,17 @@ int main() {
         if (adres->waiting_std[t] > 0) sem_op(semid, SEM_Q_STD_LADA + t, 1);
     }
 
+    
     while (aktywni > 0) {
-        pid_t p = wait(NULL);
+        int status;
+        pid_t p = wait(&status); 
         if (p > 0) {
-            if (p != pid_kucharz && p != pid_obsluga) {
-                aktywni--;
-                //if (aktywni % 10 == 0) printf(K_YELLOW "." K_RESET);
+            if (p == pid_kucharz || p == pid_obsluga) {
+                printf(K_RED "\n[MANAGER] AWARIA PODCZAS ZAMYKANIA! Symuluje Ctrl+C!\n" K_RESET);
+                raise(SIGINT);
             }
+            else if (p == pid_kierownik) pid_kierownik = 0;
+            else aktywni--;
         }
         else if (errno == ECHILD) break;
     }

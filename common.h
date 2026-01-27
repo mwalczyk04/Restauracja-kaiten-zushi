@@ -115,6 +115,9 @@ static inline void sem_op(int semid, int sem_num, int op) {
     while (1) {
         if (semop(semid, &buf, 1) == 0) break;
         if (errno == EINTR) continue;
+        if (errno == EIDRM || errno == EINVAL) {
+            exit(0);
+        }
         perror("Blad sem_op");
         exit(1);
         //break;
