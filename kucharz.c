@@ -77,13 +77,16 @@ int main() {
             else if (typ == 6) adres_global->tasma[0].cena = CENA_SPC_3;
 
             adres_global->stat_wyprodukowane[typ]++;
+
+            //printf(K_MAGENTA "[KUCHARZ] >>> KLADZIE na tasme (slot 0): Typ %d (Cena: %d) | Rezerwacja: %d\n" K_RESET,
+            //    typ, adres_global->tasma[0].cena, pid);
         }
         sem_op(semid, SEM_ACCESS, 1);
 
         long delay = DELAY_BAZA;
         if (adres_global->kucharz_speed == 1) delay /= 2;
         if (adres_global->kucharz_speed == 2) delay *= 2;
-        // for(volatile long k=0; k<delay; k++);
+        // for(volatile long k=0; k<delay; k++);   //Odkomentowaæ aby sterowaæ prêdkoœci¹ kucharza
     }
     shmdt(adres_global);
     return 0;

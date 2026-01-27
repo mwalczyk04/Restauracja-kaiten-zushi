@@ -131,6 +131,8 @@ void* zachowanie_klienta(void* arg) {
                 if (czy_biore) {
                     pthread_mutex_lock(&mutex_grupy);
                     if (zjedzone_dania < cel_do_zjedzenia) {
+                        //printf(K_CYAN "[KLIENT %d] <<< ZDEJMUJE z tasmy (slot %d): Typ %d (Cena: %d)\n" K_RESET,
+                        //    pid_grupy, belt_idx, t->typ, t->cena);
                         rachunek += t->cena;
                         zjedzone_dania++;
                         adres->stat_sprzedane[t->typ]++;
@@ -155,7 +157,7 @@ int main(int argc, char* argv[]) {
     int dorosli = 1 + (rand() % ilosc_osob);
     int dzieci = ilosc_osob - dorosli;
 
-    czy_vip = (rand() % 100 < 5);
+    czy_vip = (rand() % 100 < 2);
     cel_do_zjedzenia = ilosc_osob * (3 + (rand() % 8));
 
     if (dzieci > 0 && (dorosli * 3 < dzieci)) return 0;
