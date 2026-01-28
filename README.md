@@ -14,16 +14,6 @@
 
 ---
 
-## Spis treści
-- [Temat projektu](#Temat-projektu)
-- [Technologie](#Technologie)
-- [Struktura projektu](#Struktura-projektu)
-
-
-
----
-
-
 ## Temat projektu
 ### Temat 1 Restauracja „kaiten zushi”
 ##### **Program symuluje działanie restauracji z taśmociągiem według następujących zasad:**
@@ -127,7 +117,7 @@ Poniżej przedstawiono dowody poprawnego działania systemu w kluczowych scenari
   - Zwiększamy szansę na pojawienie się klienta VIP do 50% w `czy_vip`
   - Zmieniamy ilosc stołów w define w common.h na 2 z każdego typu
 - **Oczekiwany wynik:**  Oczekujemy zobaczyć w logach programu, że Vip omija kolejke i odrazu zajmuje miejsce jeżeli jest wolny stolik, Natomiast jeżeli wszystkie stoliki sa zajęte VIP czeka w kolejce, ale jest obsłużony priorytetowo i ma pierwszeństwo nad normalnymi klientami do zajęcia stolika jeżeli jakiś się zwolni
-- **Wynik** ![Tekst alternatywny](img/t1.jpg)
+- **Wynik** <br> ![Tekst alternatywny](img/t1.jpg)
 <br>
 
 ### **T2 Test Problem Klient-Kucharz**
@@ -137,7 +127,7 @@ Poniżej przedstawiono dowody poprawnego działania systemu w kluczowych scenari
   - > [Odkomentowujemy printf u kucharza](https://github.com/mwalczyk04/Restauracja-kaiten-zushi/blob/b9c4af77f26c68545f4770289887338d8b397401/kucharz.c#L81-L82)
   - > [Odkomentowujemy printf u klienta](https://github.com/mwalczyk04/Restauracja-kaiten-zushi/blob/b9c4af77f26c68545f4770289887338d8b397401/klient.c#L134-L135)
 - **Oczekiwany wynik:** Oczekujemy zobaczyć w logach programu, że kucharz zapełnia wszystkie wolne miejsca na taśmie w tym wypadku jedno miejsce, a następnie czeka dopóki klient nie weźmie zamówienia z taśmy.Po zwolnieniu miejsca na taśmie kucharz wraca do pracy do momentu następnego zapełnienia
-- **Wynik** ![Tekst alternatywny](img/t2.jpg)
+- **Wynik** <br> ![Tekst alternatywny](img/t2.jpg)
 <br>
 
 ### **T3 Test Spójności finansowej**
@@ -146,7 +136,7 @@ Poniżej przedstawiono dowody poprawnego działania systemu w kluczowych scenari
   - Nic nie zmieniamy, normalne ustawienia
 - **Oczekiwany wynik:** W `raport.txt` lub konsoli na końcu w raporcie musi wyjść równość: <br>
 `Wartość produkcji` = `Utarg` + `Wartość zmarnowanego jedzenia na taśmie`
-- **Wynik:**![Tekst alternatywny](img/t3.jpg)
+- **Wynik:** <br> ![Tekst alternatywny](img/t3.jpg)
 <br>
 
 ### **T4 Test logiki współdzielenia stolików**
@@ -154,7 +144,7 @@ Poniżej przedstawiono dowody poprawnego działania systemu w kluczowych scenari
 - **Konfiguracja programu:**
   - Nic nie zmieniamy, normalne ustawienia
 - **Oczekiwany wynik** W logu będzie można zobaczyć `[GRUPA X] DOSIADA SIE do ID X`. Obie grupy jedzą przy stoliku równocześnie,a stolik zajęty jest całkowicie 4/4
-- **Wynik**![Tekst alternatywny](img/t4.jpg)
+- **Wynik** <br> ![Tekst alternatywny](img/t4.jpg)
 
 <br>
 
