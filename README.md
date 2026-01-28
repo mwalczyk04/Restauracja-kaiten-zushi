@@ -1,16 +1,16 @@
 
 # "Kaiten-Zushi" - Symulacja Restauracji Sushi
 
-#<center>Autor
+# <center>Autor
 # <center>Michał Walczyk
 
 <br>
 
-#####Symulacja wieloprocesowej restauracji sushi z taśmą wykorzystująca mechanizmy komunikacji międzyprocesowej (IPC) w systemie Linux.
+##### Symulacja wieloprocesowej restauracji sushi z taśmą wykorzystująca mechanizmy komunikacji międzyprocesowej (IPC) w systemie Linux.
 
 
 ---
-###Użyty kompilator : TORUS
+### Użyty kompilator : TORUS
 
 ---
 
@@ -25,8 +25,8 @@
 
 
 ## Temat projektu
-###Temat 1 Restauracja „kaiten zushi”
-#####**Program symuluje działanie restauracji z taśmociągiem według następujących zasad:**
+### Temat 1 Restauracja „kaiten zushi”
+##### **Program symuluje działanie restauracji z taśmociągiem według następujących zasad:**
 
 
 1.   **Infrastruktura:** Lokal posiada taśmę o pojemności $P$ talerzyków oraz stoliki o różnej wielkości (od 1 do 4-osobowych) oraz lade
@@ -39,7 +39,7 @@
 8. **Sterowanie (Kierownik):** System reaguje na sygnały: przyspieszenie pracy kuchni (x2), zwolnienie (50%) oraz natychmiastową ewakuację.
 9. **Raportowanie:** Po zamknięciu generowane są statystyki: wyprodukowanych dań, sprzedanych posiłków oraz strat (jedzenie, które zostało na taśmie).
 ___
-##Technologie
+## Technologie
 * **Język:** `C`
 * **Wątki:** `pthreads`
 * **IPC:** System V (`Semafory`, `Pamięć Współdzielona`, `Kolejki Komunikatów`)
@@ -60,7 +60,7 @@ kaiten-zushi/
 └── raport.txt      # Generowany raport (po uruchomieniu)
 ```
 ___
-##Szczegółowy Opis Działania Programu
+## Szczegółowy Opis Działania Programu
 
 Poniżej przedstawiono analizę cyklu życia procesów oraz logikę sterowania zasobami.
 ### 1.Tworzenie i obsługa plików
@@ -90,7 +90,7 @@ Poniżej przedstawiono analizę cyklu życia procesów oraz logikę sterowania z
 - [Synchronizacja dostępu do zmiennych współdzielonych wewnątrz procesu](https://github.com/mwalczyk04/Restauracja-kaiten-zushi/blob/b9c4af77f26c68545f4770289887338d8b397401/klient.c#L132)
 
 ___
-##Mapa synchronizacji
+## Mapa synchronizacji
 ### 1. Zestawienie Semaforów
 W projekcie wykorzystano zestaw 11 semaforów (System V) do zarządzania dostępem do zasobów krytycznych oraz kolejkowania klientów.
 | ID | Typ | Rola w systemie |
@@ -118,7 +118,7 @@ Kolejka komunikatów obsługuje dwa niezależne kanały wymiany informacji, rozr
 <br>
 
 ---
-##Testy
+## Testy
 Poniżej przedstawiono dowody poprawnego działania systemu w kluczowych scenariuszach.
 
 ### **T1: Test priorytetów i logiki VIP**
@@ -159,12 +159,12 @@ Poniżej przedstawiono dowody poprawnego działania systemu w kluczowych scenari
 <br>
 
 ___
-##Konfiguracja
+## Konfiguracja
 <br>
 
-###Użyty kompilator: **TORUS**
+### Użyty kompilator: **TORUS**
 
-###1.Kompilacja modułów
+### 1.Kompilacja modułów
 Projekt można skompilować na dwa sposoby
 - wpisując ręcznie komendy:
 > #Klonowanie repozytorium <br> `git clone https://github.com/mwalczyk04/Restauracja-kaiten-zushi.git` <p> #Kompilacja programów <br> `gcc -pthread main.c -o main` <br>`gcc kucharz.c -o kucharz`<br> `gcc obsluga.c -o obsluga` <br> `gcc kierownik.c -o kierownik` <br> `gcc klient.c -o klient -pthread`
@@ -182,4 +182,4 @@ Program na start wypisuje pid kucharza ale można go też sprawdzić przy pomocy
 |Przyspieszenie| SIGUSR1|
 |Spowolnienie| SIGUSR2|
 |Ewakuacja| Ctrl+C|
-"""
+
