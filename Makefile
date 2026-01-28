@@ -5,8 +5,10 @@ main: main.c common.h
     gcc kucharz.c -o kucharz
     gcc klient.c -o klient -pthread
     gcc obsluga.c -o obsluga
+    gcc kierownik.c -o kierownik
 clean:
     rm -f main
     rm -f kucharz
     rm -f klient
     rm -f obsluga
+    rm -f kierownik
